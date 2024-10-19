@@ -19,7 +19,7 @@ import psutil
 from contextlib import redirect_stdout
 
 ISOMAP_ON_ALL_DATA = True           # If True, the isomap will be computed on the whole dataset, not only the test set
-PRETRAINED_MODEL = False
+PRETRAINED_MODEL = True
 
 # TRIAL CONSTANTS - Non-optimizable hyperparameters (default values for construction choices)
 SIMSUITE = "IllustrisTNG"           # Simulation suite, choose between "IllustrisTNG" and "SIMBA"
@@ -29,7 +29,7 @@ DOMAIN_ADAPT = 'MMD'                # Domain Adaptation type
 TRAINING = True                     # If training, set to True, otherwise loads a pretrained model and tests it
 PRED_PARAMS = 1                     # Number of cosmo/astro params to be predicted, starting from Omega_m, sigma_8, etc.
 ONLY_POSITIONS = 0                  # 1 for using only positions as features, 0 for using additional galactic features
-SNAP = "33"                         # Snapshot of the simulation, indicating redshift 4: z=3, 10: z=2, 14: z=1.5, 18: z=1, 24: z=0.5, 33: z=0
+SNAP = "90"                         # Snapshot of the simulation, indicating redshift 4: z=3, 10: z=2, 14: z=1.5, 18: z=1, 24: z=0.5, 33: z=0
 DA_LOSS_FRACTION = 0.4              # Fraction of the loss to be domain adaptation loss
 
 # TRIAL DEFAULTS - Optimizable hyperparameters

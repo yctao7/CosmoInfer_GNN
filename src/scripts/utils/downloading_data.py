@@ -1,8 +1,8 @@
 import requests
-from .paths import data, datapath
+from paths import data, datapath
 
 # Modify these parameters to decide what simulations to download
-sims = ["IllustrisTNG", "SIMBA"]
+sims = ["IllustrisTNG", "SIMBA", "Astrid", "EAGLE"]
 indexes = range(1000)
 
 """Download the dataset from Flatiron Institute.
@@ -18,18 +18,18 @@ data.mkdir(parents=True, exist_ok=True)
 
 destination = datapath
 url_prefix = "https://users.flatironinstitute.org/~camels/FOF_Subfind/"
-suffix = "fof_subhalo_tab_033.hdf5"
+suffix = "groups_090.hdf5"
 
-seeds_Illutris = "https://users.flatironinstitute.org/~camels/Sims/IllustrisTNG/CosmoAstroSeed_params.txt"
-seeds_SIMBA = "https://users.flatironinstitute.org/~camels/Sims/SIMBA/CosmoAstroSeed_params.txt"
-
-with open(destination + "CosmoAstroSeed_params_IllustrisTNG.txt", "wb") as f:
-    f.write(requests.get(seeds_Illutris).content)
-
-with open(destination + "CosmoAstroSeed_params_SIMBA.txt", "wb") as f:
-    f.write(requests.get(seeds_SIMBA).content)
+seeds = {
+    "IllustrisTNG": "https://github.com/franciscovillaescusa/CAMELS/blob/master/docs/params/IllustrisTNG/CosmoAstroSeed_IllustrisTNG_L25n256_LH.txt",
+    "SIMBA": "https://github.com/franciscovillaescusa/CAMELS/blob/master/docs/params/SIMBA/CosmoAstroSeed_SIMBA_L25n256_LH.txt",
+    "Astrid": "https://github.com/franciscovillaescusa/CAMELS/blob/master/docs/params/Astrid/CosmoAstroSeed_Astrid_L25n256_LH.txt",
+    "EAGLE": "https://github.com/franciscovillaescusa/CAMELS/blob/master/docs/params/EAGLE/CosmoAstroSeed_SwiftEAGLE_L25n256_LH.txt"
+}
 
 for sim in sims:
+    with open(destination + f"CosmoAstroSeed_params_{sim}.txt", "wb") as f:
+        f.write(requests.get(seeds[sim]+"?raw=true").content)
     for i in indexes:
         url = url_prefix + sim + "/LH/LH_" + str(i) + "/" + suffix
         name = destination + sim + "_LH_" + str(i) + "_" + suffix

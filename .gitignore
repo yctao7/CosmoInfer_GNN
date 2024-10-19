@@ -10,3 +10,5 @@ checkpoints
 **.diff
 .DS_Store
 OptimizationRuns
+logs
+*.sh
