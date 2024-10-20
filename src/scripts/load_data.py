@@ -129,7 +129,7 @@ def sim_graph(simsuite, simnumber, param_file, hparams):
 
     # Name of the galaxy catalogue
     simpath = datapath + simsuite + "_" + simset + "_"
-    catalogue_path = simpath + str(simnumber) + "_fof_subhalo_tab_0"+hparams.snap+".hdf5"
+    catalogue_path = simpath + str(simnumber) + "_groups_0"+hparams.snap+".hdf5"
 
     # Read the catalogue
     catalogue = h5py.File(catalogue_path, 'r')

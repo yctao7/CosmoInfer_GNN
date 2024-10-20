@@ -19,7 +19,7 @@ import psutil
 from contextlib import redirect_stdout
 
 ISOMAP_ON_ALL_DATA = True           # If True, the isomap will be computed on the whole dataset, not only the test set
-PRETRAINED_MODEL = True
+PRETRAINED_MODEL = False
 
 # TRIAL CONSTANTS - Non-optimizable hyperparameters (default values for construction choices)
 SIMSUITE = "IllustrisTNG"           # Simulation suite, choose between "IllustrisTNG" and "SIMBA"
@@ -46,6 +46,7 @@ CYCLE_TYPE = "triangular"           # Type of cycle for the cyclic learning rate
 # A) Illustris with MMD
 
 SIMSUITE = "IllustrisTNG"
+TARGETSUITE = "SIMBA"
 DOMAIN_ADAPT = "MMD"
 R_LINK = 0.015
 N_LAYERS = 2
@@ -112,9 +113,9 @@ WEIGHT_DECAY = 1e-07
 
 """
 
-params_values = [SIMSUITE, SIMSET, N_SIMS, DOMAIN_ADAPT, TRAINING, PRED_PARAMS, ONLY_POSITIONS, SNAP, DA_LOSS_FRACTION,\
+params_values = [SIMSUITE, TARGETSUITE, SIMSET, N_SIMS, DOMAIN_ADAPT, TRAINING, PRED_PARAMS, ONLY_POSITIONS, SNAP, DA_LOSS_FRACTION,\
                 R_LINK, N_LAYERS, HIDDEN_CHANNELS, N_EPOCHS, LEARNING_RATE, WEIGHT_DECAY, WEIGHT_DA]
-params_keys = ["simsuite", "simset", "n_sims", "domain_adapt", "training", "pred_params", "only_positions", "snap", "da_loss_fraction",\
+params_keys = ["simsuite", "targetsuite", "simset", "n_sims", "domain_adapt", "training", "pred_params", "only_positions", "snap", "da_loss_fraction",\
                 "r_link", "n_layers", "hidden_channels", "n_epochs", "learning_rate", "weight_decay", "weight_da"]
 
 

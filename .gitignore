@@ -1,8 +1,8 @@
 src/data
 env
-#Models
-#Plots 
-#Outputs
+Models
+Plots 
+Outputs
 checkpoints
 **/__pycache__
 **.DS_Store

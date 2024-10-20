@@ -7,6 +7,7 @@ It also contains hyperparameters useful for constructing the graph, such as the 
 class HyperParameters():
     def __init__(   self,
                     simsuite,           # Simulation suite, choose between "IllustrisTNG" and "SIMBA"
+                    targetsuite,
                     simset,             # Simulation set, choose between "CV" and "LH"
                     n_sims,             # Number of simulations considered, maximum 27 for CV and 1000 for LH 
                     domain_adapt,       # Domain Adaptation type
@@ -25,6 +26,7 @@ class HyperParameters():
                 ):
         # Set non optimizable hyperparameters (construction choices)
         self.simsuite = simsuite
+        self.targetsuite = targetsuite
         self.simset = simset
         self.n_sims = n_sims
         self.domain_adapt = domain_adapt
@@ -51,6 +53,7 @@ class HyperParameters():
         """
         return "Hyperparameters:\n"+\
             "Simulation suite: "+self.simsuite+"\n"+\
+            "Target suite: "+self.targetsuite+"\n"+\
             "Simulation set: "+self.simset+"\n"+\
             "Number of simulations: "+str(self.n_sims)+"\n"+\
             "Domain adaptation: "+self.domain_adapt+"\n"+\
@@ -84,8 +87,4 @@ class HyperParameters():
         Returns:
             str: Other CAMELS simulation suite.
         """
-        if self.simsuite=="IllustrisTNG":
-            new_simsuite = "SIMBA"
-        elif self.simsuite=="SIMBA":
-            new_simsuite = "IllustrisTNG"
-        return new_simsuite
+        return self.targetsuite
