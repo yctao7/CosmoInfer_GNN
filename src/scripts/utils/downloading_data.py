@@ -1,5 +1,6 @@
 import requests
 from paths import data, datapath
+import os
 
 # Modify these parameters to decide what simulations to download
 sims = ["IllustrisTNG", "SIMBA", "Astrid", "EAGLE"]
@@ -28,13 +29,15 @@ seeds = {
 }
 
 for sim in sims:
-    with open(destination + f"CosmoAstroSeed_params_{sim}.txt", "wb") as f:
-        f.write(requests.get(seeds[sim]+"?raw=true").content)
+    if not os.path.exists(destination + f"CosmoAstroSeed_params_{sim}.txt"):
+        with open(destination + f"CosmoAstroSeed_params_{sim}.txt", "wb") as f:
+            f.write(requests.get(seeds[sim]+"?raw=true").content)
     for i in indexes:
         url = url_prefix + sim + "/LH/LH_" + str(i) + "/" + suffix
         name = destination + sim + "_LH_" + str(i) + "_" + suffix
-        r = requests.get(url)
-        f = open(name, 'wb')
-        f.write(r.content)
-        print(f"File downloaded for {sim} set {i}")
-        f.close()
+        if not os.path.exists(name):
+            r = requests.get(url)
+            f = open(name, 'wb')
+            f.write(r.content)
+            print(f"File downloaded for {sim} set {i}")
+            f.close()

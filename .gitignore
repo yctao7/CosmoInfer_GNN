@@ -12,3 +12,4 @@ checkpoints
 OptimizationRuns
 logs
 *.sh
+src/datapath
