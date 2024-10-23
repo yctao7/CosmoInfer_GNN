@@ -1,7 +1,7 @@
 src/data
 env
 Models
-Plots 
+Plots
 Outputs
 checkpoints
 **/__pycache__
