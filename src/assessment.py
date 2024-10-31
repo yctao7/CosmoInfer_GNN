@@ -25,7 +25,7 @@ PRETRAINED_MODEL = False
 SIMSUITE = "IllustrisTNG"           # Simulation suite, choose between "IllustrisTNG" and "SIMBA"
 SIMSET = "LH"                       # Simulation set, choose between "CV" and "LH"
 N_SIMS = 1000                       # Number of simulations considered, maximum 27 for CV and 1000 for LH
-DOMAIN_ADAPT = 'MMD'                # Domain Adaptation type
+DOMAIN_ADAPT = 'MMD'                # Domain Adaptation type, None for without DA
 TRAINING = True                     # If training, set to True, otherwise loads a pretrained model and tests it
 PRED_PARAMS = 1                     # Number of cosmo/astro params to be predicted, starting from Omega_m, sigma_8, etc.
 ONLY_POSITIONS = 0                  # 1 for using only positions as features, 0 for using additional galactic features
@@ -41,7 +41,8 @@ CYCLE_TYPE = "triangular"           # Type of cycle for the cyclic learning rate
 #################### CHOOSE WHAT RESULTS TO REPLICATE ####################
 # Uncomment the parameters you want to use, and comment out the others
 
-#"""
+# For Learning rate, we may choose a rather small value of ~10e-6, and then optimize it.
+# For weight decay, 1e-07 is used for all cases
 
 # A) Illustris with MMD
 
