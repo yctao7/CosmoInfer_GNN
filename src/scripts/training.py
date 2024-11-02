@@ -8,7 +8,26 @@ of source and target domains for domain adaptation plotting and evaluation.
 from .constants import *
 from .losses_da import mmd_distance
 
-def generate_iterator(loader, same_suite = True):
+# def generate_iterator(loader, same_suite = True):
+#     """Generate iterator for training and validation steps
+
+#     Args:
+#         loader (dict): dictionary with the dataloaders
+#         same_suite (bool, optional): Defaults to True.
+
+#     Returns:
+#         iterator: iterator over the dataloaders
+#     """
+
+#     if same_suite:
+#         iterator = zip(*loader.values())  
+#     else:
+#         swapped_loader = dict(reversed(list(loader.items())))
+#         iterator = zip(*swapped_loader.values())
+
+#     return iterator
+
+def generate_iterator(loader):
     """Generate iterator for training and validation steps
 
     Args:
@@ -18,14 +37,8 @@ def generate_iterator(loader, same_suite = True):
     Returns:
         iterator: iterator over the dataloaders
     """
+    return zip(*list(loader.values()))
 
-    if same_suite:
-        iterator = zip(*loader.values())  
-    else:
-        swapped_loader = dict(reversed(list(loader.items())))
-        iterator = zip(*swapped_loader.values())
-
-    return iterator
 
 def compute_loss(y_out, y_true, err_out, encoding_1, encoding_2, hparams):
     """Compute loss with MMD.
@@ -83,38 +96,36 @@ def train(loader, model, hparams, optimizer, scheduler):
     train_loss_mmd = 0
     
     for data in iterator:
-        bs = len(data[0])
-        points += bs
+        data_src_list, data_tgt = data[:-1], data[-1]
+        y_true_tgt, out_tgt, encoding_tgt = get_res(data_tgt, model, device)
+        loss = 0
+        for data_src in data_src_list:
+            y_true_src, out_src, encoding_src = get_res(data_src, model, device)
+            bs = len(data_src)
+            y_true = y_true_src
+            out = out_src
+            encoding_1, encoding_2 = encoding_src, encoding_tgt
+            points += bs
+        
+            # If cosmo parameters are predicted, perform likelihood-free inference to predict also the standard deviation
+            y_out, err_out = out[:,:hparams.pred_params], out[:,hparams.pred_params:2*hparams.pred_params]     # Take mean and standard deviation of the output
 
-        optimizer.zero_grad()  # Clear gradients.
+            loss_mse, loss_lfi, loss_mmd = compute_loss(y_out, y_true, err_out, encoding_1, encoding_2, hparams)
 
-        data_1, data_2 = data
-        data_1.to(device)
-        data_2.to(device)
+            train_loss_mse += loss_mse * bs
+            train_loss_lfi += loss_lfi * bs
+            train_loss_mmd += loss_mmd * bs
 
-        y_true = data_1.y
-
-        # Perform a single forward pass.
-        out, encoding_1 = model(data_1)
-        _ , encoding_2 = model(data_2) 
-
-        # If cosmo parameters are predicted, perform likelihood-free inference to predict also the standard deviation
-        y_out, err_out = out[:,:hparams.pred_params], out[:,hparams.pred_params:2*hparams.pred_params]     # Take mean and standard deviation of the output
-
-        loss_mse, loss_lfi, loss_mmd = compute_loss(y_out, y_true, err_out, encoding_1, encoding_2, hparams)
-
-        if hparams.weight_da == 0.0:
-            loss = torch.log(loss_mse) + torch.log(loss_lfi)
-        else:
-            loss = torch.log(loss_mse) + torch.log(loss_lfi) + torch.log(hparams.weight_da * loss_mmd)
-
+            if hparams.weight_da == 0.0:
+                loss += torch.log(loss_mse) + torch.log(loss_lfi)
+            else:
+                loss += torch.log(loss_mse) + torch.log(loss_lfi) + torch.log(hparams.weight_da * loss_mmd)
+        
+        loss /= len(data_src_list)
         loss.backward()  # Derive gradients.
         optimizer.step()  # Update parameters based on gradients.
         scheduler.step()
-
-        train_loss_mse += loss_mse * bs
-        train_loss_lfi += loss_lfi * bs
-        train_loss_mmd += loss_mmd * bs    
+        optimizer.zero_grad()  # Clear gradients.
     
     train_loss_mse = train_loss_mse/points
     train_loss_lfi = train_loss_lfi/points
@@ -160,41 +171,43 @@ def evaluate(loader, model, hparams, same_suite = True):
     valid_loss_lfi = 0
     valid_loss_mmd = 0
 
-    iterator = generate_iterator(loader, same_suite)
+    iterator = generate_iterator(loader)
     
-
     for data in iterator:  # Iterate in batches over the training/test dataset.
+        data_src_list, data_tgt = data[:-1], data[-1]
         with torch.no_grad():
+            y_true_tgt, out_tgt, encoding_tgt = get_res(data_tgt, model, device)
+            for data_src in data_src_list:
+                y_true_src, out_src, encoding_src = get_res(data_src, model, device)
+                if same_suite:
+                    bs = len(data_src)
+                    y_true = y_true_src
+                    out = out_src
+                    encoding_1, encoding_2 = encoding_src, encoding_tgt
+                else:
+                    bs = len(data_tgt)
+                    y_true = y_true_tgt
+                    out = out_tgt
+                    encoding_1, encoding_2 = encoding_tgt, encoding_src
 
-            bs = len(data[0])
-            points += bs
+                points += bs
 
-            data_1, data_2 = data
-            data_1.to(device)
-            data_2.to(device)
+                # If cosmo parameters are predicted, perform likelihood-free inference to predict also the standard deviation
+                y_out, err_out = out[:,:hparams.pred_params], out[:,hparams.pred_params:2*hparams.pred_params]     # Take mean and standard deviation of the output
 
-            y_true = data_1.y
+                loss_mse, loss_lfi, loss_mmd = compute_loss(y_out, y_true, err_out, encoding_1, encoding_2, hparams)
 
-            # Perform a single forward pass.
-            out, encoding_1 = model(data_1)
-            _ , encoding_2 = model(data_2) 
+                valid_loss_mse += loss_mse * bs
+                valid_loss_lfi += loss_lfi * bs
+                valid_loss_mmd += loss_mmd * bs
+                
+                err = (y_out - y_true)
+                errs.append( np.abs(err.detach().cpu().numpy()).mean() ) # mean over all points in batch
 
-            # If cosmo parameters are predicted, perform likelihood-free inference to predict also the standard deviation
-            y_out, err_out = out[:,:hparams.pred_params], out[:,hparams.pred_params:2*hparams.pred_params]     # Take mean and standard deviation of the output
-
-            loss_mse, loss_lfi, loss_mmd = compute_loss(y_out, y_true, err_out, encoding_1, encoding_2, hparams)
-
-            valid_loss_mse += loss_mse * bs
-            valid_loss_lfi += loss_lfi * bs
-            valid_loss_mmd += loss_mmd * bs
-            
-            err = (y_out - y_true)
-            errs.append( np.abs(err.detach().cpu().numpy()).mean() ) # mean over all points in batch
-
-            # Append true values and predictions
-            trueparams = np.append(trueparams, y_true.detach().cpu().numpy(), 0)
-            outparams = np.append(outparams, y_out.detach().cpu().numpy(), 0)
-            outerrparams  = np.append(outerrparams, err_out.detach().cpu().numpy(), 0)
+                # Append true values and predictions
+                trueparams = np.append(trueparams, y_true.detach().cpu().numpy(), 0)
+                outparams = np.append(outparams, y_out.detach().cpu().numpy(), 0)
+                outerrparams  = np.append(outerrparams, err_out.detach().cpu().numpy(), 0)
 
     # Save true values and predictions
     if same_suite:
@@ -238,7 +251,7 @@ def compute_encodings(loader, model):
     """
     model.eval() 
 
-    iterator = generate_iterator(loader, same_suite = True)
+    iterator = generate_iterator(loader)
     source_encodings = []
     target_encodings = []
     labels = []
@@ -267,3 +280,10 @@ def compute_encodings(loader, model):
     labels = np.concatenate(labels, axis=1)
 
     return source_encodings, target_encodings, labels
+
+
+def get_res(data, model, device):
+    data.to(device)
+    out, encoding = model(data)
+    y_true = data.y
+    return y_true, out, encoding

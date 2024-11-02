@@ -13,3 +13,5 @@ OptimizationRuns
 logs
 *.sh
 src/datapath
+src/M2CDNE
+*.yml

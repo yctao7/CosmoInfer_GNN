@@ -68,7 +68,7 @@ def denormalize_outputs(trues, outputs, errors, minpar, maxpar):
 def plot_out_true_scatter(hparams, cosmoparam, same_suite = True, test= False, dir = "Plots/"):
 
     figscat, axscat = plt.subplots(figsize=(6,5))
-    suite, simset = hparams.simsuite, hparams.simset
+    suite, simset = str(hparams.simsuite), hparams.simset
 
     # Load true values and predicted means and standard deviations
     if same_suite:

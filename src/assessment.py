@@ -17,16 +17,17 @@ import time
 import os
 import psutil
 from contextlib import redirect_stdout
+import argparse
 
 ISOMAP_ON_ALL_DATA = True           # If True, the isomap will be computed on the whole dataset, not only the test set
-PRETRAINED_MODEL = False
+# PRETRAINED_MODEL = False
 
 # TRIAL CONSTANTS - Non-optimizable hyperparameters (default values for construction choices)
-SIMSUITE = "IllustrisTNG"           # Simulation suite, choose between "IllustrisTNG" and "SIMBA"
+# SIMSUITE = "IllustrisTNG"           # Simulation suite, choose between "IllustrisTNG" and "SIMBA"
 SIMSET = "LH"                       # Simulation set, choose between "CV" and "LH"
-N_SIMS = 1000                       # Number of simulations considered, maximum 27 for CV and 1000 for LH
-DOMAIN_ADAPT = 'MMD'                # Domain Adaptation type
-TRAINING = True                     # If training, set to True, otherwise loads a pretrained model and tests it
+# N_SIMS = 1000                       # Number of simulations considered, maximum 27 for CV and 1000 for LH
+# DOMAIN_ADAPT = 'MMD'                # Domain Adaptation type
+# TRAINING = True                     # If training, set to True, otherwise loads a pretrained model and tests it
 PRED_PARAMS = 1                     # Number of cosmo/astro params to be predicted, starting from Omega_m, sigma_8, etc.
 ONLY_POSITIONS = 0                  # 1 for using only positions as features, 0 for using additional galactic features
 SNAP = "90"                         # Snapshot of the simulation, indicating redshift 4: z=3, 10: z=2, 14: z=1.5, 18: z=1, 24: z=0.5, 33: z=0
@@ -45,9 +46,9 @@ CYCLE_TYPE = "triangular"           # Type of cycle for the cyclic learning rate
 
 # A) Illustris with MMD
 
-SIMSUITE = "IllustrisTNG"
-TARGETSUITE = "SIMBA"
-DOMAIN_ADAPT = "MMD"
+# SIMSUITE = "IllustrisTNG"
+# TARGETSUITE = "SIMBA"
+# DOMAIN_ADAPT = "MMD"
 R_LINK = 0.015
 N_LAYERS = 2
 HIDDEN_CHANNELS = 64
@@ -113,11 +114,6 @@ WEIGHT_DECAY = 1e-07
 
 """
 
-params_values = [SIMSUITE, TARGETSUITE, SIMSET, N_SIMS, DOMAIN_ADAPT, TRAINING, PRED_PARAMS, ONLY_POSITIONS, SNAP, DA_LOSS_FRACTION,\
-                R_LINK, N_LAYERS, HIDDEN_CHANNELS, N_EPOCHS, LEARNING_RATE, WEIGHT_DECAY, WEIGHT_DA]
-params_keys = ["simsuite", "targetsuite", "simset", "n_sims", "domain_adapt", "training", "pred_params", "only_positions", "snap", "da_loss_fraction",\
-                "r_link", "n_layers", "hidden_channels", "n_epochs", "learning_rate", "weight_decay", "weight_da"]
-
 
 def main(hparams, verbose = True):
     # Set plotting directory with trial number for easy identification
@@ -150,12 +146,13 @@ def main(hparams, verbose = True):
                 print("Time to create loaders: {:.2f} s".format(time_end-time_ini))
 
             # Define the model
-            if datasets[hparams.simsuite][0].x.shape[1] != datasets[hparams.flip_suite()][0].x.shape[1]:
-                raise ValueError("The number of features for the two must be the same, but are {} for {} and {} for {}"\
-                                 .format(train_loader[hparams.simsuite][0].x.shape[1], hparams.simsuite,\
-                                         train_loader[hparams.flip_suite()][0].x.shape[1], hparams.flip_suite()))
+            for simsuite in hparams.simsuite:
+                if datasets[simsuite][0].x.shape[1] != datasets[hparams.flip_suite()][0].x.shape[1]:
+                    raise ValueError("The number of features for the two must be the same, but are {} for {} and {} for {}"\
+                                    .format(train_loader[simsuite][0].x.shape[1], simsuite,\
+                                            train_loader[hparams.flip_suite()][0].x.shape[1], hparams.flip_suite()))
             
-            dim_in = datasets[hparams.simsuite][0].x.shape[1]
+            dim_in = datasets[hparams.simsuite[0]][0].x.shape[1]
             dim_out = hparams.pred_params * 2
             model = define_model(hparams, dim_in, dim_out)
             model.to(device)
@@ -165,11 +162,11 @@ def main(hparams, verbose = True):
                 process = psutil.Process()
                 print("Memory being used (GB):",process.memory_info().rss/1.e9)
             
-            if not PRETRAINED_MODEL:
+            if hparams.training:
                 # Define optimizer and learning rate scheduler
                 optimizer = torch.optim.Adam(model.parameters(), lr=hparams.learning_rate, weight_decay=hparams.weight_decay)
 
-                n_iterations = N_SIMS / BATCH_SIZE * hparams.n_epochs
+                n_iterations = hparams.n_sims / BATCH_SIZE * hparams.n_epochs
 
                 # Option 1: Cyclic learning rate scheduler 
                 scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=hparams.learning_rate, max_lr=MAX_LR,\
@@ -204,7 +201,8 @@ def main(hparams, verbose = True):
                     if verbose: print(f'Epoch: {epoch:03d}, Train Loss: {train_loss:.2e}, Validation Loss: {valid_loss:.2e}, Mean Absolute Error: {mean_abs_error:.2e}, Time: {epoch_end_time-epoch_start_time:.2f}s')
 
                     # Plot the isomap for domain adaptation interpretation
-                    if epoch % 50 == 0 or epoch == 1:
+                    # TODO: plot for multiple source
+                    if epoch % 50 == 0 or epoch == 1 and len(hparams.simsuite) == 1:
                         source_encodings, target_encodings, labels = compute_encodings(train_loader, model)
                         plot_isomap(source_encodings, target_encodings, labels, epoch, hparams, n_components = 2)
 
@@ -235,20 +233,22 @@ def main(hparams, verbose = True):
                     plot_out_true_scatter(hparams, "Sig", same_suite = same_suite, test = True)
 
             # Plot the isomap for domain adaptation interpretation
-            if ISOMAP_ON_ALL_DATA:
-                source_encodings = np.empty((0, model.encoding_dim))
-                target_encodings = np.empty((0, model.encoding_dim))
-                labels = np.empty((2, 0, 1))
-                for loader in [train_loader, valid_loader, test_loader]:
-                    source_encodings_, target_encodings_, labels_ = compute_encodings(loader, model)
-
-                    source_encodings = np.concatenate((source_encodings, source_encodings_), dtype=np.float32)
-                    target_encodings = np.concatenate((target_encodings, target_encodings_), dtype=np.float32)
-                    labels = np.concatenate((labels, labels_), axis=1, dtype=np.float32)
-            else:
-                source_encodings, target_encodings, labels = compute_encodings(test_loader, model)
-
-            plot_isomap(source_encodings, target_encodings, labels, N_EPOCHS, hparams, n_components = 2, dir = plot_dir, assessment=True)
+            # TODO: plot for multiple source
+            if len(hparams.simsuite) == 1:
+                if ISOMAP_ON_ALL_DATA:
+                    source_encodings = np.empty((0, model.encoding_dim))
+                    target_encodings = np.empty((0, model.encoding_dim))
+                    labels = np.empty((2, 0, 1))
+                    for loader in [train_loader, valid_loader, test_loader]:
+                        source_encodings_, target_encodings_, labels_ = compute_encodings(loader, model)
+    
+                        source_encodings = np.concatenate((source_encodings, source_encodings_), dtype=np.float32)
+                        target_encodings = np.concatenate((target_encodings, target_encodings_), dtype=np.float32)
+                        labels = np.concatenate((labels, labels_), axis=1, dtype=np.float32)
+                else:
+                    source_encodings, target_encodings, labels = compute_encodings(test_loader, model)
+    
+                plot_isomap(source_encodings, target_encodings, labels, N_EPOCHS, hparams, n_components = 2, dir = plot_dir, assessment=True)
 
             if verbose: 
                 time_end = time.time()
@@ -258,6 +258,14 @@ def main(hparams, verbose = True):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--simsuite', nargs='+', type=str, default=['IllustrisTNG'], choices=['IllustrisTNG', 'SIMBA', 'Astrid', 'Swift-EAGLE'], help='source simulation suites')
+    parser.add_argument('--targetsuite', type=str, default='SIMBA', choices=['IllustrisTNG', 'SIMBA', 'Astrid', 'Swift-EAGLE'], help='target simulation suite')
+    parser.add_argument('--domain_adapt', type=str, default='MMD', choices=['None', 'MMD'], help='domain adaptation type')
+    parser.add_argument('--training', action='store_true', default=False, help='if training, set to True, otherwise loads a pretrained model and tests it')
+    parser.add_argument('--n_sims', type=int, default=1000, help='Number of simulations considered, maximum 27 for CV and 1000 for LH')
+    parser.add_argument('--seed', type=int, default=0, help='seed for creating dataset')
+    args = parser.parse_args()
 
     # Create the folders for storing the plots, models and outputs
     for path in ["Plots", "Models", "Outputs"]:
@@ -267,6 +275,17 @@ if __name__ == "__main__":
     # If there isn't a logs folder, create it
     if not os.path.exists('logs'):
         os.makedirs('logs')
+
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(args.seed)
+
+    params_values = [args.simsuite, args.targetsuite, SIMSET, args.n_sims, args.domain_adapt, args.training, PRED_PARAMS, ONLY_POSITIONS, SNAP, DA_LOSS_FRACTION,\
+                    R_LINK, N_LAYERS, HIDDEN_CHANNELS, N_EPOCHS, LEARNING_RATE, WEIGHT_DECAY, WEIGHT_DA, args.seed]
+    params_keys = ["simsuite", "targetsuite", "simset", "n_sims", "domain_adapt", "training", "pred_params", "only_positions", "snap", "da_loss_fraction",\
+                    "r_link", "n_layers", "hidden_channels", "n_epochs", "learning_rate", "weight_decay", "weight_da", "seed"]
 
     # Construct hyperparameters from the lists above
     hparams_dict = dict(zip(params_keys, params_values))

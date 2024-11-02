@@ -228,7 +228,8 @@ def create_dataset(hparams, verbose = True):
     """
 
     datasets = {}
-    datasets[hparams.simsuite] = []
+    for simsuite in hparams.simsuite:
+        datasets[simsuite] = []
     datasets[hparams.flip_suite()] = []
 
     for name, dataset in datasets.items():

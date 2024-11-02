@@ -22,7 +22,8 @@ class HyperParameters():
                     n_epochs,           # Number of epochs
                     learning_rate,      # Learning rate
                     weight_decay,       # Weight decay
-                    weight_da           # Domain adaptation weight
+                    weight_da,           # Domain adaptation weight
+                    seed,
                 ):
         # Set non optimizable hyperparameters (construction choices)
         self.simsuite = simsuite
@@ -35,6 +36,7 @@ class HyperParameters():
         self.only_positions = only_positions
         self.snap = snap
         self.da_loss_fraction = da_loss_fraction
+        self.seed = seed
 
         # Set optimizable hyperparameters
         self.r_link = r_link
@@ -68,7 +70,8 @@ class HyperParameters():
             "Number of epochs: "+str(self.n_epochs)+"\n"+\
             "Learning rate: "+str(self.learning_rate)+"\n"+\
             "Weight decay: "+str(self.weight_decay)+"\n"+\
-            "Domain adaptation weight: "+str(self.weight_da)+"\n"
+            "Domain adaptation weight: "+str(self.weight_da)+"\n"+\
+            "Seed: "+str(self.seed)+"\n"
 
 
     def name_model(self):
@@ -77,7 +80,7 @@ class HyperParameters():
         Returns:
             str: Name of the model.
         """
-        return self.simsuite+"_"+self.simset+"_"+self.domain_adapt+"_FR_"+str(self.da_loss_fraction)+"_onlypos_"+str(self.only_positions)+\
+        return (str(self.simsuite) if len(self.simsuite) > 1 else self.simsuite[0])+"_"+self.simset+"_"+self.domain_adapt+"_FR_"+str(self.da_loss_fraction)+"_onlypos_"+str(self.only_positions)+\
             "_lr_{:.2e}_weight-da_{:.2e}_weightdecay_{:.2e}_layers_{:d}_rlink_{:.2e}_channels_{:d}_epochs_{:d}".format\
             (self.learning_rate, self.weight_da, self.weight_decay, self.n_layers, self.r_link, self.hidden_channels, self.n_epochs)
     
