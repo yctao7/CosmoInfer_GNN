@@ -22,14 +22,17 @@ Paper is available on: [arXiv](https://arxiv.org/abs/2311.01588), [NeurIPS works
 
 ## Quickstart
 
+To install all the dependencies
+> sh install.sh
+
 To download the data
 > python3 src/scripts/utils/downloading_data.py
 
-To reproduce paper results with the pretrained model files, set the PRETRAINED_MODEL variable to True and run
+To reproduce paper results with the pretrained model files, run
 > python3 src/assessment.py
 
-To retrain the models abd assess them set the PRETRAINED_MODEL to False and run
-> python3 src/assessment.py
+To retrain the models abd assess them, run
+> python3 src/assessment.py --training
 
 For all optimization runs information and details consult the file hyperparams_optimization.py
 
