@@ -40,7 +40,7 @@ def generate_iterator(loader):
     return zip(*list(loader.values()))
 
 
-def compute_loss(y_out, y_true, err_out, encoding_1, encoding_2, hparams):
+def compute_loss(y_out, y_true, err_out, encoding_1, encoding_2, hparams, disc):
     """Compute loss with MMD.
 
     Args:
@@ -59,19 +59,24 @@ def compute_loss(y_out, y_true, err_out, encoding_1, encoding_2, hparams):
     # Compute loss of mean, std and MMD
     loss_mse = torch.mean(torch.sum((y_out - y_true)**2., axis=1) , axis=0)
     loss_lfi = torch.mean(torch.sum(((y_out - y_true)**2. - err_out**2.)**2., axis=1) , axis=0)
-    loss_mmd = mmd_distance(encoding_1, encoding_2)
+    if hparams.domain_adapt == 'MMD':
+        loss_mmd = mmd_distance(encoding_1, encoding_2)
 
-    # Regulate the loss with the MMD loss such that mmd_loss is a fraction of hparams.da_loss_fraction of the total loss
-    # Idea is log(K * loss_mmd) / (log(loss_mse) + log(loss_lfi) + log(K * loss_mmd)) = hparams.da_loss_fraction
+        # Regulate the loss with the MMD loss such that mmd_loss is a fraction of hparams.da_loss_fraction of the total loss
+        # Idea is log(K * loss_mmd) / (log(loss_mse) + log(loss_lfi) + log(K * loss_mmd)) = hparams.da_loss_fraction
 
-    K = torch.exp((hparams.da_loss_fraction * (torch.log(loss_mse.detach()) + torch.log(loss_lfi.detach()))) / (1 - hparams.da_loss_fraction)) / loss_mmd.detach()
-    
-    loss_mmd = K * loss_mmd
-
+        K = torch.exp((hparams.da_loss_fraction * (torch.log(loss_mse.detach()) + torch.log(loss_lfi.detach()))) / (1 - hparams.da_loss_fraction)) / loss_mmd.detach()
+        
+        loss_mmd = K * loss_mmd
+    elif hparams.domain_adapt == 'ADV':
+        # loss_mmd here is loss from domain disciminator
+        d_softmax, loss_mmd = disc(torch.cat([encoding_1, encoding_2], dim=0), 
+                                   torch.cat((torch.zeros(len(encoding_1)), torch.ones(len(encoding_2))), dim=0).to(device=encoding_1.device, dtype=int))
+        loss_mmd = torch.exp(loss_mmd)
     return loss_mse, loss_lfi, loss_mmd
 
 # Training step
-def train(loader, model, hparams, optimizer, scheduler):
+def train(loader, model, hparams, optimizer, scheduler, disc):
     """Training step.
     
     Args:
@@ -110,7 +115,7 @@ def train(loader, model, hparams, optimizer, scheduler):
             # If cosmo parameters are predicted, perform likelihood-free inference to predict also the standard deviation
             y_out, err_out = out[:,:hparams.pred_params], out[:,hparams.pred_params:2*hparams.pred_params]     # Take mean and standard deviation of the output
 
-            loss_mse, loss_lfi, loss_mmd = compute_loss(y_out, y_true, err_out, encoding_1, encoding_2, hparams)
+            loss_mse, loss_lfi, loss_mmd = compute_loss(y_out, y_true, err_out, encoding_1, encoding_2, hparams, disc)
 
             train_loss_mse += loss_mse * bs
             train_loss_lfi += loss_lfi * bs
@@ -143,7 +148,7 @@ def train(loader, model, hparams, optimizer, scheduler):
 # --------------- #
 
 # Testing/validation step
-def evaluate(loader, model, hparams, same_suite = True):
+def evaluate(loader, model, hparams, disc, same_suite = True):
     """Testing/validation step.
     Saves true values and predictions in Outputs/ folder.
 
@@ -179,23 +184,22 @@ def evaluate(loader, model, hparams, same_suite = True):
             y_true_tgt, out_tgt, encoding_tgt = get_res(data_tgt, model, device)
             for data_src in data_src_list:
                 y_true_src, out_src, encoding_src = get_res(data_src, model, device)
+                encoding_1, encoding_2 = encoding_src, encoding_tgt # order does NOT matter for MMD, matter for ADV
                 if same_suite:
                     bs = len(data_src)
                     y_true = y_true_src
                     out = out_src
-                    encoding_1, encoding_2 = encoding_src, encoding_tgt
                 else:
                     bs = len(data_tgt)
                     y_true = y_true_tgt
                     out = out_tgt
-                    encoding_1, encoding_2 = encoding_tgt, encoding_src
 
                 points += bs
 
                 # If cosmo parameters are predicted, perform likelihood-free inference to predict also the standard deviation
                 y_out, err_out = out[:,:hparams.pred_params], out[:,hparams.pred_params:2*hparams.pred_params]     # Take mean and standard deviation of the output
 
-                loss_mse, loss_lfi, loss_mmd = compute_loss(y_out, y_true, err_out, encoding_1, encoding_2, hparams)
+                loss_mse, loss_lfi, loss_mmd = compute_loss(y_out, y_true, err_out, encoding_1, encoding_2, hparams, disc)
 
                 valid_loss_mse += loss_mse * bs
                 valid_loss_lfi += loss_lfi * bs
@@ -259,7 +263,7 @@ def compute_encodings(loader, model):
     for data in iterator:  # Iterate in batches over the training/test dataset.
         with torch.no_grad():
 
-            data_1, data_2 = data
+            data_1, data_2 = data[0], data[1] # data
             data_1.to(device)
             data_2.to(device)
             y_true_1 = data_1.y

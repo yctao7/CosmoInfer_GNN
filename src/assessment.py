@@ -18,6 +18,7 @@ import os
 import psutil
 from contextlib import redirect_stdout
 import argparse
+from scripts.utils.m2cdne import DomainDiscriminator
 
 ISOMAP_ON_ALL_DATA = True           # If True, the isomap will be computed on the whole dataset, not only the test set
 # PRETRAINED_MODEL = False
@@ -157,6 +158,10 @@ def main(hparams, verbose = True):
             dim_out = hparams.pred_params * 2
             model = define_model(hparams, dim_in, dim_out)
             model.to(device)
+            disc = None
+            if hparams.domain_adapt == 'ADV':
+                disc = DomainDiscriminator(model.encoding_dim, 1.0)
+                disc.to(device)
 
             if verbose:
                 # Print the memory (in GB) being used now:
@@ -165,7 +170,9 @@ def main(hparams, verbose = True):
             
             if hparams.training:
                 # Define optimizer and learning rate scheduler
-                optimizer = torch.optim.Adam(model.parameters(), lr=hparams.learning_rate, weight_decay=hparams.weight_decay)
+                optimizer = torch.optim.Adam(list(model.parameters())+(list(disc.parameters()) if disc else []), 
+                                             lr=hparams.learning_rate, 
+                                             weight_decay=hparams.weight_decay)
 
                 n_iterations = hparams.n_sims / BATCH_SIZE * hparams.n_epochs
 
@@ -181,8 +188,8 @@ def main(hparams, verbose = True):
                 # Training routine
                 for epoch in range(1, hparams.n_epochs+1):
                     epoch_start_time = time.time()
-                    train_loss, train_loss_mmd = train(train_loader, model, hparams, optimizer, scheduler)
-                    valid_loss, valid_loss_mmd, mean_abs_error = evaluate(valid_loader, model, hparams)
+                    train_loss, train_loss_mmd = train(train_loader, model, hparams, optimizer, scheduler, disc)
+                    valid_loss, valid_loss_mmd, mean_abs_error = evaluate(valid_loader, model, hparams, disc)
 
                     train_losses.append(train_loss) 
                     valid_losses.append(valid_loss) 
@@ -203,7 +210,7 @@ def main(hparams, verbose = True):
 
                     # Plot the isomap for domain adaptation interpretation
                     # TODO: plot for multiple source
-                    if epoch % 50 == 0 or epoch == 1 and len(hparams.simsuite) == 1:
+                    if (epoch % 50 == 0 or epoch == 1) and len(hparams.simsuite) == 1:
                         source_encodings, target_encodings, labels = compute_encodings(train_loader, model)
                         plot_isomap(source_encodings, target_encodings, labels, epoch, hparams, n_components = 2)
 
@@ -219,7 +226,7 @@ def main(hparams, verbose = True):
 
             # Evaluation on test set of model saved at best validation error
             for same_suite in [True, False]:
-                test_loss, mmd_loss, _ = evaluate(test_loader, model, hparams, same_suite)
+                test_loss, mmd_loss, _ = evaluate(test_loader, model, hparams, disc, same_suite)
 
                 if same_suite: 
                     print("Test loss on same suite: {:.2e}".format(test_loss))
@@ -262,7 +269,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--simsuite', nargs='+', type=str, default=['IllustrisTNG'], choices=['IllustrisTNG', 'SIMBA', 'Astrid', 'Swift-EAGLE'], help='source simulation suites')
     parser.add_argument('--targetsuite', type=str, default='SIMBA', choices=['IllustrisTNG', 'SIMBA', 'Astrid', 'Swift-EAGLE'], help='target simulation suite')
-    parser.add_argument('--domain_adapt', type=str, default='MMD', choices=['None', 'MMD'], help='domain adaptation type')
+    parser.add_argument('--domain_adapt', type=str, default='MMD', choices=['None', 'MMD', 'ADV'], help='domain adaptation type')
     parser.add_argument('--training', action='store_true', default=False, help='if training, set to True, otherwise loads a pretrained model and tests it')
     parser.add_argument('--n_sims', type=int, default=1000, help='Number of simulations considered, maximum 27 for CV and 1000 for LH')
     parser.add_argument('--seed', type=int, default=0, help='seed for creating dataset')
