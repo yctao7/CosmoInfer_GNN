@@ -222,6 +222,112 @@ class GNN(torch.nn.Module):
 
         return encoding
 
+class GIN(torch.nn.Module):
+    def __init__(self, node_features, n_layers, hidden_channels, dim_out):
+        """
+        GIN implementation for graph-level tasks with pooling and MLP layers.
+        
+        Args:
+            node_features (int): Number of input node features.
+            n_layers (int): Number of GINConv layers.
+            hidden_channels (int): Hidden dimension for node embeddings.
+            dim_out (int): Output dimension of the network.
+        """
+        super().__init__()
+        
+        self.n_layers = n_layers
+        
+        # Define encoding_dim for graph-level tasks
+        self.encoding_dim = 3 * hidden_channels
+
+        # Define the MLP for GINConv
+        def build_mlp(in_channels, out_channels):
+            return Sequential(
+                Linear(in_channels, out_channels),
+                ReLU(),
+                Linear(out_channels, out_channels)
+            )
+
+        # First GIN layer
+        self.convs = torch.nn.ModuleList()
+        self.convs.append(GINConv(build_mlp(node_features, hidden_channels)))
+
+        # Hidden GIN layers
+        for _ in range(n_layers - 1):
+            self.convs.append(GINConv(build_mlp(hidden_channels, hidden_channels)))
+
+        # Final aggregation layer
+        self.outlayer = Sequential(
+            Linear(3 * hidden_channels, hidden_channels),
+            ReLU(),
+            Linear(hidden_channels, hidden_channels),
+            ReLU(),
+            Linear(hidden_channels, dim_out)
+        )
+
+    def forward(self, data):
+        """
+        Forward pass for GIN.
+        
+        Args:
+            data: PyTorch Geometric data object containing:
+                - x: Node features.
+                - edge_index: Graph connectivity in COO format.
+                - batch: Batch assignment for nodes.
+        
+        Returns:
+            - out: Output predictions.
+            - encoding: Graph-level encoding (pooled features).
+        """
+        h, edge_index = data.x, data.edge_index
+
+        # Apply GIN layers
+        for conv in self.convs:
+            h = conv(h, edge_index)
+            h = torch.nn.ReLU()(h)  # Activation after each GIN layer
+
+        # Pooling layer (graph-level encoding)
+        addpool = global_add_pool(h, data.batch)
+        meanpool = global_mean_pool(h, data.batch)
+        maxpool = global_max_pool(h, data.batch)
+
+        # Combine pooled features
+        encoding = torch.cat([addpool, meanpool, maxpool], dim=1)
+
+        # Final linear layer for prediction
+        out = self.outlayer(encoding)
+        return out, encoding
+
+    def compute_encoding(self, data):
+        """
+        Compute only the graph encoding (without final prediction layer).
+        
+        Args:
+            data: PyTorch Geometric data object containing:
+                - x: Node features.
+                - edge_index: Graph connectivity in COO format.
+                - batch: Batch assignment for nodes.
+        
+        Returns:
+            - encoding: Graph-level encoding (pooled features).
+        """
+        h, edge_index = data.x, data.edge_index
+
+        # Apply GIN layers
+        for conv in self.convs:
+            h = conv(h, edge_index)
+            h = torch.nn.ReLU()(h)
+
+        # Pooling layer (graph-level encoding)
+        addpool = global_add_pool(h, data.batch)
+        meanpool = global_mean_pool(h, data.batch)
+        maxpool = global_max_pool(h, data.batch)
+
+        # Combine pooled features
+        encoding = torch.cat([addpool, meanpool, maxpool], dim=1)
+
+        return encoding
+
 def define_model(hparams, dim_in, dim_out):
     """Generate the GNN for the given dataset and hparams.
     Definition of model takes as argument datasets as GNN structure heavily relies on underlying graph structure.
@@ -241,6 +347,13 @@ def define_model(hparams, dim_in, dim_out):
                 linkradius=hparams.r_link,
                 dim_out=dim_out,
                 only_positions=hparams.only_positions)
+    
+    ####### GIN model #######
+    # model = GIN(node_features=dim_in,
+    #             n_layers=hparams.n_layers,
+    #             hidden_channels=hparams.hidden_channels,
+    #             dim_out=dim_out)
+    
     model.to(device)
 
     return model
