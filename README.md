@@ -31,10 +31,13 @@ To download the data
 To reproduce paper results with the pretrained model files, run
 > python3 src/assessment.py
 
-To retrain the models abd assess them, run
+We have added _argparse_ to assessment.py. To run the script with different arguments:
+> python3 src/assessment.py --simsuite Astrid Swift-EAGLE --targetsuite IllustrisTNG --domain_adapt ADV --training --n_sims 500 --seed 42
+
+To retrain the models and assess them, run
 > python3 src/assessment.py --training
 
-For all optimization runs information and details consult the file hyperparams_optimization.py
+For all optimization running information and details consult the file hyperparams_optimization.py
 
 ## Citation 
 
