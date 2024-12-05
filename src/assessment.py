@@ -248,6 +248,11 @@ def main(hparams, verbose = True):
                 if ISOMAP_ON_ALL_DATA:
                     source_encodings = np.empty((0, model.encoding_dim))
                     target_encodings = np.empty((0, model.encoding_dim))
+                    
+                    ### divided by num of heads for GAT
+                    # source_encodings = np.empty((0, model.encoding_dim // 8), dtype=np.float32)  # Use integer division
+                    # target_encodings = np.empty((0, model.encoding_dim // 8), dtype=np.float32)  
+                    
                     labels = np.empty((2, 0, 1))
                     for loader in [train_loader, valid_loader, test_loader]:
                         loader_sub = {k:v for k,v in loader.items() if k in [simsuite, hparams.targetsuite]}

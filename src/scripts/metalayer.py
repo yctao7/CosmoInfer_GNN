@@ -222,6 +222,104 @@ class GNN(torch.nn.Module):
 
         return encoding
 
+class GAT(torch.nn.Module):
+    def __init__(self, node_features, n_layers, hidden_channels, dim_out, heads=8):
+        """
+        GAT implementation for graph-level tasks with pooling and MLP layers.
+
+        Args:
+            node_features (int): Number of input node features.
+            n_layers (int): Number of GATConv layers.
+            hidden_channels (int): Hidden dimension for node embeddings.
+            dim_out (int): Output dimension of the network.
+            heads (int): Number of attention heads for GATConv.
+        """
+        super().__init__()
+        self.n_layers = n_layers
+        
+        # Define encoding_dim for graph-level tasks (excluding global feature)
+        self.encoding_dim = 3 * hidden_channels * heads
+
+        # First GAT layer
+        self.convs = torch.nn.ModuleList()
+        self.convs.append(GATConv(node_features, hidden_channels // heads, heads=heads, concat=True))
+
+        # Hidden GAT layers
+        for _ in range(n_layers - 1):
+            self.convs.append(GATConv(hidden_channels, hidden_channels // heads, heads=heads, concat=True))
+
+        # Final aggregation layer
+        self.outlayer = Sequential(
+            Linear(3 * hidden_channels, hidden_channels),
+            ReLU(),
+            Linear(hidden_channels, hidden_channels),
+            ReLU(),
+            Linear(hidden_channels, dim_out)
+        )
+
+    def forward(self, data):
+        """
+        Forward pass for GAT.
+
+        Args:
+            data: PyTorch Geometric data object containing:
+                - x: Node features.
+                - edge_index: Graph connectivity in COO format.
+                - batch: Batch assignment for nodes.
+
+        Returns:
+            - out: Output predictions.
+            - encoding: Graph-level encoding (pooled features).
+        """
+        h, edge_index = data.x, data.edge_index
+
+        # Apply GAT layers
+        for conv in self.convs:
+            h = conv(h, edge_index)
+            h = torch.nn.ReLU()(h)  # Activation after each GAT layer
+
+        # Pooling layer (graph-level encoding)
+        addpool = global_add_pool(h, data.batch)
+        meanpool = global_mean_pool(h, data.batch)
+        maxpool = global_max_pool(h, data.batch)
+
+        # Combine pooled features
+        encoding = torch.cat([addpool, meanpool, maxpool], dim=1)
+
+        # Final linear layer for prediction
+        out = self.outlayer(encoding)
+        return out, encoding
+
+    def compute_encoding(self, data):
+        """
+        Compute only the graph encoding (without final prediction layer).
+
+        Args:
+            data: PyTorch Geometric data object containing:
+                - x: Node features.
+                - edge_index: Graph connectivity in COO format.
+                - batch: Batch assignment for nodes.
+
+        Returns:
+            - encoding: Graph-level encoding (pooled features).
+        """
+        h, edge_index = data.x, data.edge_index
+
+        # Apply GAT layers
+        for conv in self.convs:
+            h = conv(h, edge_index)
+            h = torch.nn.ReLU()(h)
+
+        # Pooling layer (graph-level encoding)
+        addpool = global_add_pool(h, data.batch)
+        meanpool = global_mean_pool(h, data.batch)
+        maxpool = global_max_pool(h, data.batch)
+
+        # Combine pooled features
+        encoding = torch.cat([addpool, meanpool, maxpool], dim=1)
+
+        return encoding
+
 class GIN(torch.nn.Module):
     def __init__(self, node_features, n_layers, hidden_channels, dim_out):
         """
