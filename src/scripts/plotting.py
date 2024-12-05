@@ -204,7 +204,7 @@ def denormalize_labels(labels, minpar, maxpar):
     """
     return minpar + labels*(maxpar - minpar)
     
-def plot_isomap(source, target, labels, epochs, hparams, n_components = 2, dir = "Plots/", assessment = False):
+def plot_isomap(source, target, labels, epochs, hparams, source_name, n_components = 2, dir = "Plots/", assessment = False):
     """Generate and save isomap plot of the source and target domains.
 
     Args:
@@ -261,7 +261,7 @@ def plot_isomap(source, target, labels, epochs, hparams, n_components = 2, dir =
             plt.title('Isomap 2D at epoch {}'.format(epochs))
 
         plt.scatter(source_mapped[:,0], source_mapped[:,1], c = source_labels, cmap = 'plasma',\
-                     marker = '^', s = 10, label = hparams.simsuite, vmin=min_label, vmax=max_label)
+                     marker = '^', s = 10, label = source_name, vmin=min_label, vmax=max_label)
         plt.scatter(target_mapped[:,0], target_mapped[:,1], c = target_labels, cmap = 'plasma',\
                      marker = 'o', s = 10, label = hparams.flip_suite(), vmin=min_label, vmax=max_label)
 
@@ -281,9 +281,9 @@ def plot_isomap(source, target, labels, epochs, hparams, n_components = 2, dir =
         plt.text(0.05, 0.95, 'MMD = {:.2f}'.format(mmd), transform=ax.transAxes, fontsize=12, verticalalignment='top')
 
         if assessment:
-            plt.savefig(dir + "{}_isomap_2D_assessment.png".format(hparams.name_model()), bbox_inches='tight', dpi=300)
+            plt.savefig(dir + "{}_isomap_2D_assessment_{}.png".format(hparams.name_model(), source_name), bbox_inches='tight', dpi=300)
         else:
-            plt.savefig(dir + "{}_isomap_2D_epochs_{}.png".format(hparams.name_model(), epochs), bbox_inches='tight', dpi=300)
+            plt.savefig(dir + "{}_isomap_2D_epochs_{}_{}.png".format(hparams.name_model(), epochs, source_name), bbox_inches='tight', dpi=300)
         plt.close(fig)
 
     elif n_components == 3:
@@ -296,7 +296,7 @@ def plot_isomap(source, target, labels, epochs, hparams, n_components = 2, dir =
             plt.title('Isomap 3D at epoch {}'.format(epochs))
 
         ax.scatter3D(source_mapped[:,0], source_mapped[:,1], source_mapped[:,2], c = labels[0], cmap = 'plasma',\
-                        marker = '^', s = 15, label = hparams.simsuite, vmin=min_label, vmax=max_label)
+                        marker = '^', s = 15, label = source_name, vmin=min_label, vmax=max_label)
         ax.scatter3D(target_mapped[:,0], target_mapped[:,1], target_mapped[:,2], c = labels[1], cmap = 'plasma',\
                         marker = 'o', s = 15, label = hparams.flip_suite(), vmin=min_label, vmax=max_label)
         
@@ -317,9 +317,9 @@ def plot_isomap(source, target, labels, epochs, hparams, n_components = 2, dir =
         plt.text(0.05, 0.95, 'MMD = {:.2f}'.format(mmd), transform=ax.transAxes, fontsize=12, verticalalignment='top')
 
         if assessment:
-            plt.savefig(dir + "{}_isomap_3D_assessment.png".format(hparams.name_model()), bbox_inches='tight', dpi=300)
+            plt.savefig(dir + "{}_isomap_3D_assessment_{}.png".format(hparams.name_model(), source_name), bbox_inches='tight', dpi=300)
         else:
-            plt.savefig(dir + "{}_isomap_3D_epochs_{}.png".format(hparams.name_model(), epochs), bbox_inches='tight', dpi=300)
+            plt.savefig(dir + "{}_isomap_3D_epochs_{}_{}.png".format(hparams.name_model(), epochs, source_name), bbox_inches='tight', dpi=300)
         plt.close(fig)
 
 def remove_outliers(mapped, labels):

@@ -210,9 +210,11 @@ def main(hparams, verbose = True):
 
                     # Plot the isomap for domain adaptation interpretation
                     # TODO: plot for multiple source
-                    if (epoch % 50 == 0 or epoch == 1) and len(hparams.simsuite) == 1:
-                        source_encodings, target_encodings, labels = compute_encodings(train_loader, model)
-                        plot_isomap(source_encodings, target_encodings, labels, epoch, hparams, n_components = 2)
+                    if (epoch % 50 == 0 or epoch == 1):
+                        for simsuite in hparams.simsuite:
+                            train_loader_sub = {k:v for k,v in train_loader.items() if k in [simsuite, hparams.targetsuite]}
+                            source_encodings, target_encodings, labels = compute_encodings(train_loader_sub, model)
+                            plot_isomap(source_encodings, target_encodings, labels, epoch, hparams, simsuite, n_components = 2)
 
                 plot_losses(train_losses, valid_losses, hparams)
                 plot_losses(train_losses_mmd, valid_losses_mmd, hparams, plot_mmd=True)
@@ -242,21 +244,23 @@ def main(hparams, verbose = True):
 
             # Plot the isomap for domain adaptation interpretation
             # TODO: plot for multiple source
-            if len(hparams.simsuite) == 1:
+            for simsuite in hparams.simsuite:
                 if ISOMAP_ON_ALL_DATA:
                     source_encodings = np.empty((0, model.encoding_dim))
                     target_encodings = np.empty((0, model.encoding_dim))
                     labels = np.empty((2, 0, 1))
                     for loader in [train_loader, valid_loader, test_loader]:
-                        source_encodings_, target_encodings_, labels_ = compute_encodings(loader, model)
-    
+                        loader_sub = {k:v for k,v in loader.items() if k in [simsuite, hparams.targetsuite]}
+                        source_encodings_, target_encodings_, labels_ = compute_encodings(loader_sub, model)
+
                         source_encodings = np.concatenate((source_encodings, source_encodings_), dtype=np.float32)
                         target_encodings = np.concatenate((target_encodings, target_encodings_), dtype=np.float32)
                         labels = np.concatenate((labels, labels_), axis=1, dtype=np.float32)
                 else:
-                    source_encodings, target_encodings, labels = compute_encodings(test_loader, model)
-    
-                plot_isomap(source_encodings, target_encodings, labels, N_EPOCHS, hparams, n_components = 2, dir = plot_dir, assessment=True)
+                    test_loader_sub = {k:v for k,v in test_loader.items() if k in [simsuite, hparams.targetsuite]}
+                    source_encodings, target_encodings, labels = compute_encodings(test_loader_sub, model)
+
+                plot_isomap(source_encodings, target_encodings, labels, N_EPOCHS, hparams, simsuite, n_components = 2, dir = plot_dir, assessment=True)
 
             if verbose: 
                 time_end = time.time()

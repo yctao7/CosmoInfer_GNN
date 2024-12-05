@@ -80,7 +80,7 @@ class HyperParameters():
         Returns:
             str: Name of the model.
         """
-        return (str(self.simsuite) if len(self.simsuite) > 1 else self.simsuite[0])+"_"+self.simset+"_"+self.domain_adapt+"_FR_"+str(self.da_loss_fraction)+"_onlypos_"+str(self.only_positions)+\
+        return f"[{', '.join(self.simsuite)}]"+"_"+self.targetsuite+"_"+self.simset+"_"+self.domain_adapt+"_FR_"+str(self.da_loss_fraction)+"_onlypos_"+str(self.only_positions)+\
             "_lr_{:.2e}_weight-da_{:.2e}_weightdecay_{:.2e}_layers_{:d}_rlink_{:.2e}_channels_{:d}_epochs_{:d}".format\
             (self.learning_rate, self.weight_da, self.weight_decay, self.n_layers, self.r_link, self.hidden_channels, self.n_epochs)
     
