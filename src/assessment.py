@@ -119,7 +119,8 @@ WEIGHT_DECAY = 1e-07
 
 def main(hparams, verbose = True):
     # Set plotting directory with trial number for easy identification
-    plot_dir = "Plots/"
+    plot_dir = f"Plots/{hparams.name_model()}/"
+    os.makedirs(plot_dir, exist_ok=True)
 
     with open("logs/log_assessment_{}.txt".format(hparams.name_model()), "w") as logfile:
         # Everything printed in the console will be written in the file
@@ -208,16 +209,15 @@ def main(hparams, verbose = True):
 
                     if verbose: print(f'Epoch: {epoch:03d}, Train Loss: {train_loss:.2e}, Validation Loss: {valid_loss:.2e}, Mean Absolute Error: {mean_abs_error:.2e}, Time: {epoch_end_time-epoch_start_time:.2f}s')
 
-                    # Plot the isomap for domain adaptation interpretation
-                    # TODO: plot for multiple source
                     if (epoch % 50 == 0 or epoch == 1):
                         for simsuite in hparams.simsuite:
                             train_loader_sub = {k:v for k,v in train_loader.items() if k in [simsuite, hparams.targetsuite]}
                             source_encodings, target_encodings, labels = compute_encodings(train_loader_sub, model)
-                            plot_isomap(source_encodings, target_encodings, labels, epoch, hparams, simsuite, n_components = 2)
+                            plot_isomap(source_encodings, target_encodings, labels, epoch, hparams, simsuite, n_components = 2, dir=plot_dir)
+                            plot_isomap(source_encodings, target_encodings, labels, epoch, hparams, simsuite, n_components = 3, dir=plot_dir)
 
-                plot_losses(train_losses, valid_losses, hparams)
-                plot_losses(train_losses_mmd, valid_losses_mmd, hparams, plot_mmd=True)
+                plot_losses(train_losses, valid_losses, hparams, dir=plot_dir)
+                plot_losses(train_losses_mmd, valid_losses_mmd, hparams, plot_mmd=True, dir=plot_dir)
 
                 # Load the trained model
                 state_dict = torch.load("Models/"+hparams.name_model(), map_location=device)
@@ -238,12 +238,10 @@ def main(hparams, verbose = True):
                     print("Test MMD-only loss on opposite suite: {:.2e}".format(mmd_loss))
 
                 # Plot true vs predicted cosmo parameters
-                plot_out_true_scatter(hparams, "Om", same_suite = same_suite, test = True)
+                plot_out_true_scatter(hparams, "Om", same_suite = same_suite, test = True, dir=plot_dir)
                 if hparams.pred_params==2:
-                    plot_out_true_scatter(hparams, "Sig", same_suite = same_suite, test = True)
+                    plot_out_true_scatter(hparams, "Sig", same_suite = same_suite, test = True, dir=plot_dir)
 
-            # Plot the isomap for domain adaptation interpretation
-            # TODO: plot for multiple source
             for simsuite in hparams.simsuite:
                 if ISOMAP_ON_ALL_DATA:
                     source_encodings = np.empty((0, model.encoding_dim))
@@ -266,6 +264,7 @@ def main(hparams, verbose = True):
                     source_encodings, target_encodings, labels = compute_encodings(test_loader_sub, model)
 
                 plot_isomap(source_encodings, target_encodings, labels, N_EPOCHS, hparams, simsuite, n_components = 2, dir = plot_dir, assessment=True)
+                plot_isomap(source_encodings, target_encodings, labels, N_EPOCHS, hparams, simsuite, n_components = 3, dir = plot_dir, assessment=True)
 
             if verbose: 
                 time_end = time.time()

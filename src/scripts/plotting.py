@@ -51,9 +51,9 @@ def plot_losses(train_losses, valid_losses, hparams, plot_mmd = False, test_loss
     plt.grid()
 
     if plot_mmd:
-        plt.savefig(dir+hparams.name_model()+"_loss_mmd.png", bbox_inches='tight', dpi=300)
+        plt.savefig(dir+"loss_mmd.png", bbox_inches='tight', dpi=300)
     else:
-        plt.savefig(dir+hparams.name_model()+"_loss.png", bbox_inches='tight', dpi=300)
+        plt.savefig(dir+"loss.png", bbox_inches='tight', dpi=300)
     plt.close()
 
 # Remove normalization of cosmo parameters
@@ -175,11 +175,11 @@ def plot_out_true_scatter(hparams, cosmoparam, same_suite = True, test= False, d
     if not same_suite:
         titlefig = "Training in "+suite+", testing in "+hparams.flip_suite()
         #titlefig = "Cross test in "+suite+usefeatures
-        namefig = hparams.name_model() + "_out_true_" + cosmoparam+"_testsuite"
+        namefig = "out_true_" + cosmoparam+"_testsuite"
     else:
         titlefig = "Training in "+suite+", testing in "+suite
         #titlefig = "Train in "+suite+usefeatures
-        namefig = hparams.name_model() + "_out_true_" + cosmoparam
+        namefig = "out_true_" + cosmoparam
     axscat.set_title(titlefig)
 
     if test:    
@@ -281,9 +281,9 @@ def plot_isomap(source, target, labels, epochs, hparams, source_name, n_componen
         plt.text(0.05, 0.95, 'MMD = {:.2f}'.format(mmd), transform=ax.transAxes, fontsize=12, verticalalignment='top')
 
         if assessment:
-            plt.savefig(dir + "{}_isomap_2D_assessment_{}.png".format(hparams.name_model(), source_name), bbox_inches='tight', dpi=300)
+            plt.savefig(dir + "isomap_2D_assessment_{}.png".format(source_name), bbox_inches='tight', dpi=300)
         else:
-            plt.savefig(dir + "{}_isomap_2D_epochs_{}_{}.png".format(hparams.name_model(), epochs, source_name), bbox_inches='tight', dpi=300)
+            plt.savefig(dir + "isomap_2D_epochs_{}_{}.png".format(epochs, source_name), bbox_inches='tight', dpi=300)
         plt.close(fig)
 
     elif n_components == 3:
@@ -295,9 +295,9 @@ def plot_isomap(source, target, labels, epochs, hparams, source_name, n_componen
         else:
             plt.title('Isomap 3D at epoch {}'.format(epochs))
 
-        ax.scatter3D(source_mapped[:,0], source_mapped[:,1], source_mapped[:,2], c = labels[0], cmap = 'plasma',\
+        source_scatter = ax.scatter3D(source_mapped[:,0], source_mapped[:,1], source_mapped[:,2], c = source_labels, cmap = 'plasma',\
                         marker = '^', s = 15, label = source_name, vmin=min_label, vmax=max_label)
-        ax.scatter3D(target_mapped[:,0], target_mapped[:,1], target_mapped[:,2], c = labels[1], cmap = 'plasma',\
+        target_scatter = ax.scatter3D(target_mapped[:,0], target_mapped[:,1], target_mapped[:,2], c = target_labels, cmap = 'plasma',\
                         marker = 'o', s = 15, label = hparams.flip_suite(), vmin=min_label, vmax=max_label)
         
         ax.xaxis.set_ticklabels([])
@@ -310,16 +310,16 @@ def plot_isomap(source, target, labels, epochs, hparams, source_name, n_componen
         ax.legend(loc = 'upper right', fontsize = 10)
 
         # Set colorbar to read true value for inferred parameter
-        cbar = plt.colorbar()
+        cbar = plt.colorbar(source_scatter)
         cbar.set_label('True value for \u03A9', rotation=270, labelpad = 20)
 
         # Add distance statistics to plot
-        plt.text(0.05, 0.95, 'MMD = {:.2f}'.format(mmd), transform=ax.transAxes, fontsize=12, verticalalignment='top')
+        ax.text(0.05, 0.95, 0, 'MMD = {:.2f}'.format(mmd), transform=ax.transAxes, fontsize=12, verticalalignment='top')
 
         if assessment:
-            plt.savefig(dir + "{}_isomap_3D_assessment_{}.png".format(hparams.name_model(), source_name), bbox_inches='tight', dpi=300)
+            plt.savefig(dir + "isomap_3D_assessment_{}.png".format(source_name), bbox_inches='tight', dpi=300)
         else:
-            plt.savefig(dir + "{}_isomap_3D_epochs_{}_{}.png".format(hparams.name_model(), epochs, source_name), bbox_inches='tight', dpi=300)
+            plt.savefig(dir + "isomap_3D_epochs_{}_{}.png".format(epochs, source_name), bbox_inches='tight', dpi=300)
         plt.close(fig)
 
 def remove_outliers(mapped, labels):

@@ -11,6 +11,8 @@ import scipy.spatial as SS
 import torch
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
+import os
+import pickle
 
 from .constants import BATCH_SIZE, BOX_SIZE, TEST_SIZE, VALID_SIZE, Nstar_th
 from .utils.paths import datapath
@@ -227,6 +229,10 @@ def create_dataset(hparams, verbose = True):
         dict: dictionary with either one or two datasets, where the key is the name of the simulation
     """
 
+    filename = f"datasets_{hparams.n_sims}.pkl"
+    if os.path.exists(filename):
+        return pickle.load(open(filename, "rb"))
+
     datasets = {}
     for simsuite in hparams.simsuite:
         datasets[simsuite] = []
@@ -246,4 +252,5 @@ def create_dataset(hparams, verbose = True):
             print("Simulation suite {} statistics:".format(name))
             print("Total of galaxies", gals[name].sum(0), "Mean of", gals[name].mean(0),"per simulation, Std of", gals[name].std(0))
 
+    pickle.dump(datasets, open(filename, "wb"))
     return datasets
