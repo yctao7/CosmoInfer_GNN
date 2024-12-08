@@ -48,12 +48,12 @@ class DomainDiscriminator(nn.Module):
         d_logit = torch.matmul(h_dann_2, self.W_domain) + self.b_domain
         
         # Softmax
-        d_softmax = F.softmax(d_logit, dim=1)
+        # d_softmax = F.softmax(d_logit, dim=1)
         
         # Cross-entropy loss
         domain_loss = F.cross_entropy(d_logit, d_label)
         
-        return d_softmax, domain_loss
+        return d_logit, domain_loss
 
 
 class LocalDiscriminator(nn.Module):

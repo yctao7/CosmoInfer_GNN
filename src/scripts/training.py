@@ -72,7 +72,8 @@ def compute_loss(y_out, y_true, err_out, encoding_1, encoding_2, hparams, disc):
         # loss_mmd here is loss from domain disciminator
         d_softmax, loss_mmd = disc(torch.cat([encoding_1, encoding_2], dim=0), 
                                    torch.cat((torch.zeros(len(encoding_1)), torch.ones(len(encoding_2))), dim=0).to(device=encoding_1.device, dtype=int))
-        loss_mmd = torch.exp(loss_mmd)
+        K = torch.exp((hparams.da_loss_fraction * (torch.log(loss_mse.detach()) + torch.log(loss_lfi.detach()))) / (1 - hparams.da_loss_fraction)) / loss_mmd.detach()
+        loss_mmd = K * loss_mmd
     return loss_mse, loss_lfi, loss_mmd
 
 # Training step
@@ -139,6 +140,9 @@ def train(loader, model, hparams, optimizer, scheduler, disc):
     if hparams.weight_da == 0.0:
         train_loss = (torch.log(train_loss_mse) + torch.log(train_loss_lfi)).item()
         train_loss_mmd_only = 0.0
+    elif disc:
+        train_loss = (torch.log(train_loss_mse) + torch.log(train_loss_lfi) - torch.log(hparams.weight_da * train_loss_mmd)).item() #
+        train_loss_mmd_only = -torch.log(hparams.weight_da * train_loss_mmd).item()
     else:
         train_loss = (torch.log(train_loss_mse) + torch.log(train_loss_lfi) + torch.log(train_loss_mmd)).item()
         train_loss_mmd_only = torch.log(train_loss_mmd).item()
@@ -232,6 +236,9 @@ def evaluate(loader, model, hparams, disc, same_suite = True):
     if hparams.weight_da == 0.0:
         valid_loss = (torch.log(valid_loss_mse) + torch.log(valid_loss_lfi)).item()
         valid_loss_mmd_only = 0.0
+    elif disc:
+        valid_loss = (torch.log(valid_loss_mse) + torch.log(valid_loss_lfi) - torch.log(hparams.weight_da * valid_loss_mmd)).item()
+        valid_loss_mmd_only = -torch.log(hparams.weight_da * valid_loss_mmd).item()
     else:
         valid_loss = (torch.log(valid_loss_mse) + torch.log(valid_loss_lfi) + torch.log(valid_loss_mmd)).item()
         valid_loss_mmd_only = torch.log(valid_loss_mmd).item()

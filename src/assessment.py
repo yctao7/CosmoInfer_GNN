@@ -15,10 +15,12 @@ from scripts.hyperparameters import HyperParameters
 
 import time
 import os
+import sys
 import psutil
 from contextlib import redirect_stdout
 import argparse
 from scripts.utils.m2cdne import DomainDiscriminator
+from scripts.utils.logging_utils import Tee
 
 ISOMAP_ON_ALL_DATA = True           # If True, the isomap will be computed on the whole dataset, not only the test set
 # PRETRAINED_MODEL = False
@@ -124,7 +126,7 @@ def main(hparams, verbose = True):
 
     with open("logs/log_assessment_{}.txt".format(hparams.name_model()), "w") as logfile:
         # Everything printed in the console will be written in the file
-        with redirect_stdout(logfile):        
+        with redirect_stdout(Tee(sys.stdout, logfile)):        
             
             if verbose: 
                 print("Assessment of model {}...".format(hparams.name_model()))
@@ -185,9 +187,13 @@ def main(hparams, verbose = True):
                 train_losses, valid_losses = [], []
                 train_losses_mmd, valid_losses_mmd = [], []
                 valid_loss_min, err_min = 1000., 1000.
+                # epoch_min = 1
 
                 # Training routine
                 for epoch in range(1, hparams.n_epochs+1):
+                    # if epoch - epoch_min >= 50:
+                    #     break
+
                     epoch_start_time = time.time()
                     train_loss, train_loss_mmd = train(train_loader, model, hparams, optimizer, scheduler, disc)
                     valid_loss, valid_loss_mmd, mean_abs_error = evaluate(valid_loader, model, hparams, disc)
@@ -203,6 +209,7 @@ def main(hparams, verbose = True):
                         torch.save(model.state_dict(), "Models/"+hparams.name_model())
 
                         valid_loss_min = valid_loss
+                        # epoch_min = epoch
 
                     # Print training/validation statistics
                     epoch_end_time = time.time()

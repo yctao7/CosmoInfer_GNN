@@ -61,3 +61,19 @@ def general_log(*str):
     with open("logs/log_optuna.txt", "a") as logfile:
         with redirect_stdout(logfile):
             print(*str)
+
+
+class Tee:
+    """
+    A class to duplicate stdout to both the console and a file.
+    """
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, data):
+        for stream in self.streams:
+            stream.write(data)
+
+    def flush(self):
+        for stream in self.streams:
+            stream.flush()
