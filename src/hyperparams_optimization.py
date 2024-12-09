@@ -46,6 +46,7 @@ EARLY_STOPPING_TOLERANCE = 1.e-4    # Tolerance for early stopping
 SIMSUITE = "IllustrisTNG"               # Simulation suite, choose between "IllustrisTNG" and "SIMBA"
 TARGETSUITE = "SIMBA"
 SEED = 42
+MODEL_SELECT = "GNN"
 SIMSET = "LH"                       # Simulation set, choose between "CV" and "LH"
 N_SIMS = 500                       # Number of simulations considered, maximum 27 for CV and 1000 for LH
 DOMAIN_ADAPT = 'None'                # Domain Adaptation type
@@ -68,15 +69,15 @@ NUM_CYCLES = 2                      # Number of cycles for the cyclic learning r
 CYCLE_TYPE = "triangular"           # Type of cycle for the cyclic learning rate scheduler, either "triangular" or "triangular2"
 
 params_values = [SIMSUITE,TARGETSUITE, SIMSET, N_SIMS, DOMAIN_ADAPT, TRAINING, PRED_PARAMS, ONLY_POSITIONS, SNAP, DA_LOSS_FRACTION,\
-                R_LINK, N_LAYERS, HIDDEN_CHANNELS, N_EPOCHS, LEARNING_RATE, WEIGHT_DECAY, WEIGHT_DA,SEED]
+                R_LINK, N_LAYERS, HIDDEN_CHANNELS, N_EPOCHS, LEARNING_RATE, WEIGHT_DECAY, WEIGHT_DA, SEED, MODEL_SELECT]
 params_keys = ["simsuite", "targetsuite", "simset", "n_sims", "domain_adapt", "training", "pred_params", "only_positions", "snap", "da_loss_fraction",\
-                "r_link", "n_layers", "hidden_channels", "n_epochs", "learning_rate", "weight_decay", "weight_da", "seed"]
+                "r_link", "n_layers", "hidden_channels", "n_epochs", "learning_rate", "weight_decay", "weight_da", "seed", "model_select"]
 
 
 # --- PARAMETERS TO OPTIMIZE --- #
 # Comment out the ones you don't want to optimize, which will be set to the default value above
 optimize_params = [     #"r_link",
-                        #"n_layers",
+                        "n_layers",
                         #"hidden_channels",
                         #"n_epochs",
                         "learning_rate",
@@ -322,7 +323,7 @@ if __name__ == "__main__":
 
     # Optuna variables to create the study
     storage = "sqlite:///"+os.getcwd()+"/optuna_"+SIMSUITE
-    study_name = "GNN_"+SIMSUITE
+    study_name = "GCN_"+SIMSUITE
 
 
     objective = partial(objective_function, optimize_params = optimize_params)
