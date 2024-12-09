@@ -229,7 +229,7 @@ def main(hparams, verbose = True):
                 # Load the trained model
                 state_dict = torch.load("Models/"+hparams.name_model(), map_location=device)
             else: 
-                state_dict  = torch.load("ModelsPreTrained/"+hparams.name_model(), map_location=device)
+                state_dict = torch.load("Models/"+hparams.name_model(), map_location=device)
 
             model.load_state_dict(state_dict)            
 
