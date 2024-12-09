@@ -20,6 +20,19 @@ This work was accepted to the Machine Learning and the Physical Sciences Worksho
 
 Paper is available on: [arXiv](https://arxiv.org/abs/2311.01588), [NeurIPS workshop website](https://nips.cc/virtual/2023/76180).
 
+Based on this paper, we perform improvements to address limitations:
+<ul>
+  <li>
+    <strong>Enhancing Cross-Domain Accuracy:</strong> Explore more flexible approaches such as adversarial-based domain adaptation (DA) techniques instead of distance-based methods like MMD. 
+  </li>
+  <li>
+    <strong>Multi-source Simulation Suites:</strong> Train and test models on all four available CAMELS simulation suites. This expansion would improve the cross-domain efficacy and reliability of assessments.
+  </li>
+  <li>
+    <strong>Optimizing Computational Efficiency:</strong> Overcome computational and time constraints through the efficient file/data reading/writing to allow broader exploration of data and techniques.
+  </li>
+</ul>
+
 ## Quickstart
 
 To install all the dependencies
