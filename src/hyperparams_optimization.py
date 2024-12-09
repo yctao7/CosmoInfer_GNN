@@ -43,10 +43,12 @@ EARLY_STOPPING_TOLERANCE = 1.e-4    # Tolerance for early stopping
 
 
 # TRIAL CONSTANTS - Non-optimizable hyperparameters (default values for construction choices)
-SIMSUITE = "IllustrisTNG"              # Simulation suite, choose between "IllustrisTNG" and "SIMBA"
+SIMSUITE = "IllustrisTNG"               # Simulation suite, choose between "IllustrisTNG" and "SIMBA"
+TARGETSUITE = "SIMBA"
+SEED = 42
 SIMSET = "LH"                       # Simulation set, choose between "CV" and "LH"
-N_SIMS = 1000                       # Number of simulations considered, maximum 27 for CV and 1000 for LH
-DOMAIN_ADAPT = 'MMD'                # Domain Adaptation type
+N_SIMS = 500                       # Number of simulations considered, maximum 27 for CV and 1000 for LH
+DOMAIN_ADAPT = 'None'                # Domain Adaptation type
 TRAINING = True                     # If training, set to True, otherwise loads a pretrained model and tests it
 PRED_PARAMS = 1                     # Number of cosmo/astro params to be predicted, starting from Omega_m, sigma_8, etc.
 ONLY_POSITIONS = 0                  # 1 for using only positions as features, 0 for using additional galactic features
@@ -65,10 +67,10 @@ MAX_LR = 1e-3                       # Maximum learning rate for the cyclic learn
 NUM_CYCLES = 2                      # Number of cycles for the cyclic learning rate scheduler
 CYCLE_TYPE = "triangular"           # Type of cycle for the cyclic learning rate scheduler, either "triangular" or "triangular2"
 
-params_values = [SIMSUITE, SIMSET, N_SIMS, DOMAIN_ADAPT, TRAINING, PRED_PARAMS, ONLY_POSITIONS, SNAP, DA_LOSS_FRACTION,\
-                R_LINK, N_LAYERS, HIDDEN_CHANNELS, N_EPOCHS, LEARNING_RATE, WEIGHT_DECAY, WEIGHT_DA]
-params_keys = ["simsuite", "simset", "n_sims", "domain_adapt", "training", "pred_params", "only_positions", "snap", "da_loss_fraction",\
-                "r_link", "n_layers", "hidden_channels", "n_epochs", "learning_rate", "weight_decay", "weight_da"]
+params_values = [SIMSUITE,TARGETSUITE, SIMSET, N_SIMS, DOMAIN_ADAPT, TRAINING, PRED_PARAMS, ONLY_POSITIONS, SNAP, DA_LOSS_FRACTION,\
+                R_LINK, N_LAYERS, HIDDEN_CHANNELS, N_EPOCHS, LEARNING_RATE, WEIGHT_DECAY, WEIGHT_DA,SEED]
+params_keys = ["simsuite", "targetsuite", "simset", "n_sims", "domain_adapt", "training", "pred_params", "only_positions", "snap", "da_loss_fraction",\
+                "r_link", "n_layers", "hidden_channels", "n_epochs", "learning_rate", "weight_decay", "weight_da", "seed"]
 
 
 # --- PARAMETERS TO OPTIMIZE --- #
@@ -195,6 +197,10 @@ def objective_function(trial, optimize_params, verbose = True):
             dim_out = hparams.pred_params * 2
             model = define_model(hparams, dim_in, dim_out)
             model.to(device)
+            disc = None
+            if DOMAIN_ADAPT == 'ADV':
+                disc = DomainDiscriminator(model.encoding_dim, 1.0)
+                disc.to(device)
 
             if verbose:
                 # Print the memory (in GB) being used now:
@@ -224,8 +230,8 @@ def objective_function(trial, optimize_params, verbose = True):
             # Training routine
             for epoch in range(1, hparams.n_epochs+1):
                 epoch_start_time = time.time()
-                train_loss, train_loss_mmd = train(train_loader, model, hparams, optimizer, scheduler)
-                valid_loss, valid_loss_mmd, mean_abs_error = evaluate(valid_loader, model, hparams)
+                train_loss, train_loss_mmd = train(train_loader, model, hparams, optimizer, scheduler, disc)
+                valid_loss, valid_loss_mmd, mean_abs_error = evaluate(valid_loader, model, hparams, disc)
 
                 trial.report(valid_loss, epoch)
 
@@ -257,9 +263,10 @@ def objective_function(trial, optimize_params, verbose = True):
 
                 # Plot the isomap for domain adaptation interpretation
                 if epoch % 50 == 0 or epoch == 1:
-                    source_encodings, target_encodings, labels = compute_encodings(train_loader, model)
-                    plot_isomap(source_encodings, target_encodings, labels, epoch, hparams, n_components = 2, dir = plot_dir)
-
+                    for simsuite in hparams.simsuite:
+                        source_encodings, target_encodings, labels = compute_encodings(train_loader, model)
+                        plot_isomap(source_encodings, target_encodings, labels, epoch, hparams, simsuite, n_components = 2, dir=plot_dir)
+                        plot_isomap(source_encodings, target_encodings, labels, epoch, hparams, simsuite, n_components = 3, dir=plot_dir)
             plot_losses(train_losses, valid_losses, hparams, dir = plot_dir)
             plot_losses(train_losses_mmd, valid_losses_mmd, hparams, plot_mmd=True, dir = plot_dir)
 
@@ -269,7 +276,7 @@ def objective_function(trial, optimize_params, verbose = True):
 
             # Evaluation on validation set of model saved at best validation error
             for same_suite in [True, False]:
-                valid_loss, mmd_loss, _ = evaluate(valid_loader, model, hparams, same_suite)
+                valid_loss, mmd_loss, _ = evaluate(valid_loader, model, hparams, disc, same_suite)
 
                 if same_suite: 
                     print("Validation loss on same suite: {:.2e}".format(valid_loss))
