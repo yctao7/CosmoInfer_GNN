@@ -46,15 +46,15 @@ EARLY_STOPPING_TOLERANCE = 1.e-4    # Tolerance for early stopping
 SIMSUITE = "IllustrisTNG"               # Simulation suite, choose between "IllustrisTNG" and "SIMBA"
 TARGETSUITE = "SIMBA"
 SEED = 42
-MODEL_SELECT = "GNN"
 SIMSET = "LH"                       # Simulation set, choose between "CV" and "LH"
 N_SIMS = 500                       # Number of simulations considered, maximum 27 for CV and 1000 for LH
-DOMAIN_ADAPT = 'None'                # Domain Adaptation type
+DOMAIN_ADAPT = 'ADV'                # Domain Adaptation type
 TRAINING = True                     # If training, set to True, otherwise loads a pretrained model and tests it
 PRED_PARAMS = 1                     # Number of cosmo/astro params to be predicted, starting from Omega_m, sigma_8, etc.
 ONLY_POSITIONS = 0                  # 1 for using only positions as features, 0 for using additional galactic features
 SNAP = "33"                         # Snapshot of the simulation, indicating redshift 4: z=3, 10: z=2, 14: z=1.5, 18: z=1, 24: z=0.5, 33: z=0
 DA_LOSS_FRACTION = 0.4              # Fraction of the loss to be domain adaptation loss
+DA_CON_LOSS = 0
 
 # TRIAL DEFAULTS - Optimizable hyperparameters
 R_LINK = 0.015                      # Linking radius to build the graph
@@ -67,17 +67,18 @@ WEIGHT_DA = 1e-1                    # Domain adaptation weight
 MAX_LR = 1e-3                       # Maximum learning rate for the cyclic learning rate scheduler
 NUM_CYCLES = 2                      # Number of cycles for the cyclic learning rate scheduler
 CYCLE_TYPE = "triangular"           # Type of cycle for the cyclic learning rate scheduler, either "triangular" or "triangular2"
+MODEL = 'GNN'                          #'GNN', 'GCN', 'GIN', 'GAT'
 
-params_values = [SIMSUITE,TARGETSUITE, SIMSET, N_SIMS, DOMAIN_ADAPT, TRAINING, PRED_PARAMS, ONLY_POSITIONS, SNAP, DA_LOSS_FRACTION,\
-                R_LINK, N_LAYERS, HIDDEN_CHANNELS, N_EPOCHS, LEARNING_RATE, WEIGHT_DECAY, WEIGHT_DA, SEED, MODEL_SELECT]
-params_keys = ["simsuite", "targetsuite", "simset", "n_sims", "domain_adapt", "training", "pred_params", "only_positions", "snap", "da_loss_fraction",\
-                "r_link", "n_layers", "hidden_channels", "n_epochs", "learning_rate", "weight_decay", "weight_da", "seed", "model_select"]
+params_values = [SIMSUITE,TARGETSUITE, SIMSET, N_SIMS, DOMAIN_ADAPT,DA_CON_LOSS, TRAINING, PRED_PARAMS, ONLY_POSITIONS, SNAP, DA_LOSS_FRACTION,\
+                R_LINK, N_LAYERS, HIDDEN_CHANNELS, N_EPOCHS, LEARNING_RATE, WEIGHT_DECAY, WEIGHT_DA,SEED,MODEL]
+params_keys = ["simsuite", "targetsuite", "simset", "n_sims", "domain_adapt", "da_cond_loss_fraction", "training", "pred_params", "only_positions", "snap", "da_loss_fraction",\
+                    "r_link", "n_layers", "hidden_channels", "n_epochs", "learning_rate", "weight_decay", "weight_da", "seed", "model_select"]
 
 
 # --- PARAMETERS TO OPTIMIZE --- #
 # Comment out the ones you don't want to optimize, which will be set to the default value above
 optimize_params = [     #"r_link",
-                        "n_layers",
+                        #"n_layers",
                         #"hidden_channels",
                         #"n_epochs",
                         "learning_rate",
@@ -202,6 +203,11 @@ def objective_function(trial, optimize_params, verbose = True):
             if DOMAIN_ADAPT == 'ADV':
                 disc = DomainDiscriminator(model.encoding_dim, 1.0)
                 disc.to(device)
+            if hparams.da_cond_loss_fraction > 0:
+                disc_cond = DomainDiscriminator(model.encoding_dim, 1.0)
+                disc_cond.to(device)
+                d = model.encoding_dim
+                hparams.freq_encoder = torch.tensor([(d**0.5) ** (-(i-1)/(d**0.5)) for i in range (1, d+1)]).to(device)
 
             if verbose:
                 # Print the memory (in GB) being used now:
@@ -323,7 +329,7 @@ if __name__ == "__main__":
 
     # Optuna variables to create the study
     storage = "sqlite:///"+os.getcwd()+"/optuna_"+SIMSUITE
-    study_name = "GCN_"+SIMSUITE
+    study_name = "GNN_"+SIMSUITE
 
 
     objective = partial(objective_function, optimize_params = optimize_params)
