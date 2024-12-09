@@ -37,7 +37,7 @@ SNAP = "90"                         # Snapshot of the simulation, indicating red
 DA_LOSS_FRACTION = 0.4              # Fraction of the loss to be domain adaptation loss
 
 # TRIAL DEFAULTS - Optimizable hyperparameters
-N_EPOCHS = 500                      # Number of epochs
+N_EPOCHS = 500                     # Number of epochs
 MAX_LR = 1e-3                       # Maximum learning rate for the cyclic learning rate scheduler
 NUM_CYCLES = 2.75                   # Number of cycles for the cyclic learning rate scheduler
 CYCLE_TYPE = "triangular"           # Type of cycle for the cyclic learning rate scheduler, either "triangular" or "triangular2"
@@ -161,10 +161,15 @@ def main(hparams, verbose = True):
             dim_out = hparams.pred_params * 2
             model = define_model(hparams, dim_in, dim_out)
             model.to(device)
-            disc = None
+            disc, disc_cond = None, None
             if hparams.domain_adapt == 'ADV':
                 disc = DomainDiscriminator(model.encoding_dim, 1.0)
                 disc.to(device)
+            if hparams.da_cond_loss_fraction > 0:
+                disc_cond = DomainDiscriminator(model.encoding_dim, 1.0)
+                disc_cond.to(device)
+                d = model.encoding_dim
+                hparams.freq_encoder = torch.tensor([(d**0.5) ** (-(i-1)/(d**0.5)) for i in range (1, d+1)]).to(device)
 
             if verbose:
                 # Print the memory (in GB) being used now:
@@ -173,7 +178,7 @@ def main(hparams, verbose = True):
             
             if hparams.training:
                 # Define optimizer and learning rate scheduler
-                optimizer = torch.optim.Adam(list(model.parameters())+(list(disc.parameters()) if disc else []), 
+                optimizer = torch.optim.Adam(list(model.parameters())+(list(disc.parameters()) if disc else [])+(list(disc_cond.parameters()) if disc_cond else []), 
                                              lr=hparams.learning_rate, 
                                              weight_decay=hparams.weight_decay)
 
@@ -195,8 +200,8 @@ def main(hparams, verbose = True):
                     #     break
 
                     epoch_start_time = time.time()
-                    train_loss, train_loss_mmd = train(train_loader, model, hparams, optimizer, scheduler, disc)
-                    valid_loss, valid_loss_mmd, mean_abs_error = evaluate(valid_loader, model, hparams, disc)
+                    train_loss, train_loss_mmd = train(train_loader, model, hparams, optimizer, scheduler, disc, disc_cond=disc_cond)
+                    valid_loss, valid_loss_mmd, mean_abs_error = evaluate(valid_loader, model, hparams, disc, disc_cond=disc_cond)
 
                     train_losses.append(train_loss) 
                     valid_losses.append(valid_loss) 
@@ -235,7 +240,7 @@ def main(hparams, verbose = True):
 
             # Evaluation on test set of model saved at best validation error
             for same_suite in [True, False]:
-                test_loss, mmd_loss, _ = evaluate(test_loader, model, hparams, disc, same_suite)
+                test_loss, mmd_loss, _ = evaluate(test_loader, model, hparams, disc, same_suite, disc_cond=disc_cond)
 
                 if same_suite: 
                     print("Test loss on same suite: {:.2e}".format(test_loss))
@@ -285,6 +290,7 @@ if __name__ == "__main__":
     parser.add_argument('--simsuite', nargs='+', type=str, default=['IllustrisTNG'], choices=['IllustrisTNG', 'SIMBA', 'Astrid', 'Swift-EAGLE'], help='source simulation suites')
     parser.add_argument('--targetsuite', type=str, default='SIMBA', choices=['IllustrisTNG', 'SIMBA', 'Astrid', 'Swift-EAGLE'], help='target simulation suite')
     parser.add_argument('--domain_adapt', type=str, default='MMD', choices=['None', 'MMD', 'ADV'], help='domain adaptation type')
+    parser.add_argument('--da_cond_loss_fraction', type=float, default=0, help='fraction of conditional DA loss')
     parser.add_argument('--training', action='store_true', default=False, help='if training, set to True, otherwise loads a pretrained model and tests it')
     parser.add_argument('--n_sims', type=int, default=1000, help='Number of simulations considered, maximum 27 for CV and 1000 for LH')
     parser.add_argument('--seed', type=int, default=0, help='seed for creating dataset')
@@ -306,9 +312,9 @@ if __name__ == "__main__":
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
 
-    params_values = [args.simsuite, args.targetsuite, SIMSET, args.n_sims, args.domain_adapt, args.training, PRED_PARAMS, ONLY_POSITIONS, SNAP, DA_LOSS_FRACTION,\
+    params_values = [args.simsuite, args.targetsuite, SIMSET, args.n_sims, args.domain_adapt, args.da_cond_loss_fraction, args.training, PRED_PARAMS, ONLY_POSITIONS, SNAP, DA_LOSS_FRACTION,\
                     R_LINK, N_LAYERS, HIDDEN_CHANNELS, N_EPOCHS, LEARNING_RATE, WEIGHT_DECAY, WEIGHT_DA, args.seed, args.model]
-    params_keys = ["simsuite", "targetsuite", "simset", "n_sims", "domain_adapt", "training", "pred_params", "only_positions", "snap", "da_loss_fraction",\
+    params_keys = ["simsuite", "targetsuite", "simset", "n_sims", "domain_adapt", "da_cond_loss_fraction", "training", "pred_params", "only_positions", "snap", "da_loss_fraction",\
                     "r_link", "n_layers", "hidden_channels", "n_epochs", "learning_rate", "weight_decay", "weight_da", "seed", "model_select"]
 
     # Construct hyperparameters from the lists above

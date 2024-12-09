@@ -10,7 +10,8 @@ class HyperParameters():
                     targetsuite,
                     simset,             # Simulation set, choose between "CV" and "LH"
                     n_sims,             # Number of simulations considered, maximum 27 for CV and 1000 for LH 
-                    domain_adapt,       # Domain Adaptation type
+                    domain_adapt,       # Domain Adaptation type,
+                    da_cond_loss_fraction,   # Fraction of the da loss that is the conditional da loss
                     training,           # If training, set to True, otherwise loads a pretrained model and tests it
                     pred_params,        # Number of cosmo/astro params to be predicted, starting from Omega_m, sigma_8, etc.
                     only_positions,     # 1 for using only positions as features, 0 for using additional galactic features
@@ -32,6 +33,7 @@ class HyperParameters():
         self.simset = simset
         self.n_sims = n_sims
         self.domain_adapt = domain_adapt
+        self.da_cond_loss_fraction = da_cond_loss_fraction
         self.training = training
         self.pred_params = pred_params
         self.only_positions = only_positions
@@ -61,6 +63,7 @@ class HyperParameters():
             "Simulation set: "+self.simset+"\n"+\
             "Number of simulations: "+str(self.n_sims)+"\n"+\
             "Domain adaptation: "+self.domain_adapt+"\n"+\
+            "DA conditional loss fraction: "+self.da_cond_loss_fraction+"\n"+\
             "Training: "+str(self.training)+"\n"+\
             "Number of predicted parameters: "+str(self.pred_params)+"\n"+\
             "Only positions: "+str(self.only_positions)+"\n"+\
@@ -82,8 +85,7 @@ class HyperParameters():
         Returns:
             str: Name of the model.
         """
-        # return f"[{', '.join(self.simsuite)}]"+"_"+self.targetsuite+"_"+self.simset+"_"+self.domain_adapt+"_FR_"+str(self.da_loss_fraction)+"_onlypos_"+str(self.only_positions)+\
-        return self.model_select+"_"+f"[{', '.join(self.simsuite)}]"+"_"+self.targetsuite+"_"+self.simset+"_"+self.domain_adapt+"_FR_"+str(self.da_loss_fraction)+"_onlypos_"+str(self.only_positions)+\
+        return self.model_select+"_"+f"[{', '.join(self.simsuite)}]"+"_"+self.targetsuite+"_"+self.simset+"_"+self.domain_adapt+"_FCR_"+str(self.da_cond_loss_fraction)+"_FR_"+str(self.da_loss_fraction)+"_onlypos_"+str(self.only_positions)+\
             "_lr_{:.2e}_weight-da_{:.2e}_weightdecay_{:.2e}_layers_{:d}_rlink_{:.2e}_channels_{:d}_epochs_{:d}".format\
             (self.learning_rate, self.weight_da, self.weight_decay, self.n_layers, self.r_link, self.hidden_channels, self.n_epochs)
     
