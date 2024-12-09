@@ -51,8 +51,8 @@ CYCLE_TYPE = "triangular"           # Type of cycle for the cyclic learning rate
 # A) Illustris with MMD
 
 # SIMSUITE = "IllustrisTNG"
-# TARGETSUITE = "SIMBA"
-# DOMAIN_ADAPT = "MMD"
+TARGETSUITE = "SIMBA"
+DOMAIN_ADAPT = "MMD"
 R_LINK = 0.015
 N_LAYERS = 2
 HIDDEN_CHANNELS = 64
@@ -288,6 +288,7 @@ if __name__ == "__main__":
     parser.add_argument('--training', action='store_true', default=False, help='if training, set to True, otherwise loads a pretrained model and tests it')
     parser.add_argument('--n_sims', type=int, default=1000, help='Number of simulations considered, maximum 27 for CV and 1000 for LH')
     parser.add_argument('--seed', type=int, default=0, help='seed for creating dataset')
+    parser.add_argument('--model', type=str, default='GCN', choices=['GNN', 'GCN', 'GIN', 'GAT'], help='choose the model type')
     args = parser.parse_args()
 
     # Create the folders for storing the plots, models and outputs
@@ -306,9 +307,9 @@ if __name__ == "__main__":
         torch.cuda.manual_seed_all(args.seed)
 
     params_values = [args.simsuite, args.targetsuite, SIMSET, args.n_sims, args.domain_adapt, args.training, PRED_PARAMS, ONLY_POSITIONS, SNAP, DA_LOSS_FRACTION,\
-                    R_LINK, N_LAYERS, HIDDEN_CHANNELS, N_EPOCHS, LEARNING_RATE, WEIGHT_DECAY, WEIGHT_DA, args.seed]
+                    R_LINK, N_LAYERS, HIDDEN_CHANNELS, N_EPOCHS, LEARNING_RATE, WEIGHT_DECAY, WEIGHT_DA, args.seed, args.model]
     params_keys = ["simsuite", "targetsuite", "simset", "n_sims", "domain_adapt", "training", "pred_params", "only_positions", "snap", "da_loss_fraction",\
-                    "r_link", "n_layers", "hidden_channels", "n_epochs", "learning_rate", "weight_decay", "weight_da", "seed"]
+                    "r_link", "n_layers", "hidden_channels", "n_epochs", "learning_rate", "weight_decay", "weight_da", "seed", "model_select"]
 
     # Construct hyperparameters from the lists above
     hparams_dict = dict(zip(params_keys, params_values))

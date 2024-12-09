@@ -11,6 +11,7 @@ from torch_scatter import (scatter_add, scatter_max, scatter_mean)
 
 from .constants import device
 
+from torch_geometric.nn import GCNConv, GATConv, GINConv
 
 # Model for updating edge attritbutes
 class EdgeModel(torch.nn.Module):
@@ -173,17 +174,17 @@ class GNN(torch.nn.Module):
 
         self.layers = ModuleList(layers)
 
-        # Save encding dimension 
+        # Save encoding dimension 
         self.encoding_dim = 3*node_out+1
 
         # Final aggregation layer
         self.outlayer = Sequential(Linear(self.encoding_dim, hid_channels),
-                              ReLU(),
-                              Linear(hid_channels, hid_channels),
-                              ReLU(),
-                              Linear(hid_channels, hid_channels),
-                              ReLU(),
-                              Linear(hid_channels, self.dim_out))
+                            ReLU(),
+                            Linear(hid_channels, hid_channels),
+                            ReLU(),
+                            Linear(hid_channels, hid_channels),
+                            ReLU(),
+                            Linear(hid_channels, self.dim_out))
 
     def forward(self, data):
 
@@ -220,6 +221,60 @@ class GNN(torch.nn.Module):
 
         encoding = torch.cat([addpool,meanpool,maxpool,u], dim=1)
 
+        return encoding
+    
+# Replace MetaLayer blocks with GCNConv layers for message passing
+class GCN(torch.nn.Module):
+    def __init__(self, node_features, n_layers, hidden_channels, dim_out):
+        super().__init__()
+        self.n_layers = n_layers
+
+        # First layer
+        self.convs = torch.nn.ModuleList()
+        self.convs.append(GCNConv(node_features, hidden_channels))
+
+        # Hidden layers
+        for _ in range(n_layers - 1):
+            self.convs.append(GCNConv(hidden_channels, hidden_channels))
+
+        # Save the encoding dimension for downstream tasks
+        self.encoding_dim = hidden_channels * 3  # 3 for add, mean, max pooling
+
+        # Final aggregation layer
+        self.outlayer = torch.nn.Sequential(
+            torch.nn.Linear(self.encoding_dim, hidden_channels),
+            torch.nn.ReLU(),
+            torch.nn.Linear(hidden_channels, dim_out)
+        )
+
+    def forward(self, data):
+        # Compute encoding
+        encoding = self.compute_encoding(data)
+
+        # Final linear layer
+        out = self.outlayer(encoding)
+        return out, encoding
+    
+    def compute_encoding(self, data):
+        """
+        Computes the encoding of the graph.
+        This function aggregates node embeddings with add, mean, and max pooling.
+        """
+        h, edge_index = data.x, data.edge_index
+
+        # Apply GCN layers
+        for conv in self.convs:
+            h = conv(h, edge_index)
+            h = torch.nn.ReLU()(h)
+
+        # Pooling layer
+        addpool = global_add_pool(h, data.batch)
+        meanpool = global_mean_pool(h, data.batch)
+        maxpool = global_max_pool(h, data.batch)
+
+        # Concatenate pooled features
+        encoding = torch.cat([addpool, meanpool, maxpool], dim=1)
+        # print(f"Encoding shape: {encoding.shape}")  # Debugging shape
         return encoding
 
 class GAT(torch.nn.Module):
@@ -435,22 +490,35 @@ def define_model(hparams, dim_in, dim_out):
         datasets (dict): Datasets, key is the name of the simulation suite.
 
     Returns:
-        GNN: GNN model.
+        model.
     """
 
     # Initialize model
-    model = GNN(node_features=dim_in,
-                n_layers=hparams.n_layers,
-                hidden_channels=hparams.hidden_channels,
-                linkradius=hparams.r_link,
-                dim_out=dim_out,
-                only_positions=hparams.only_positions)
+    ### GIN: node_features, n_layers, hidden_channels, dim_out
     
-    ####### GIN model #######
-    # model = GIN(node_features=dim_in,
-    #             n_layers=hparams.n_layers,
-    #             hidden_channels=hparams.hidden_channels,
-    #             dim_out=dim_out)
+    ### GAT: node_features, n_layers, hidden_channels, dim_out, heads=8 (use default number of heads)
+    if hparams.model_select == 'GNN':
+        model = GNN(node_features=dim_in,
+                    n_layers=hparams.n_layers,
+                    hidden_channels=hparams.hidden_channels,
+                    linkradius=hparams.r_link,
+                    dim_out=dim_out,
+                    only_positions=hparams.only_positions)
+    elif hparams.model_select == 'GCN':
+        model = GCN(node_features=dim_in,
+                    n_layers=hparams.n_layers, 
+                    hidden_channels=hparams.hidden_channels,
+                    dim_out=dim_out)
+    elif hparams.model_select == 'GIN':
+        model = GIN(node_features=dim_in,
+                    n_layers=hparams.n_layers,
+                    hidden_channels=hparams.hidden_channels,
+                    dim_out=dim_out)
+    elif hparams.model_select == 'GAT':
+        model = GAT(node_features=dim_in,
+                    n_layers=hparams.n_layers,
+                    hidden_channels=hparams.hidden_channels,
+                    dim_out=dim_out)
     
     model.to(device)
 
