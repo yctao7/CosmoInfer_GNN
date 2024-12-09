@@ -59,6 +59,8 @@ def compute_loss(y_out, y_true, err_out, encoding_1, encoding_2, hparams, disc):
     # Compute loss of mean, std and MMD
     loss_mse = torch.mean(torch.sum((y_out - y_true)**2., axis=1) , axis=0)
     loss_lfi = torch.mean(torch.sum(((y_out - y_true)**2. - err_out**2.)**2., axis=1) , axis=0)
+            # Initialize MMD Loss to zero
+    loss_mmd = torch.tensor(0.0, device=device)
     if hparams.domain_adapt == 'MMD':
         loss_mmd = mmd_distance(encoding_1, encoding_2)
 
