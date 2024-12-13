@@ -128,7 +128,7 @@ def train(loader, model, hparams, optimizer, scheduler, disc, disc_cond=None):
             train_loss_lfi += loss_lfi * bs
             train_loss_mmd += loss_mmd * bs
 
-            if hparams.weight_da == 0.0:
+            if hparams.weight_da == 0.0 or hparams.domain_adapt == 'None':
                 loss += torch.log(loss_mse) + torch.log(loss_lfi)
             else:
                 loss += torch.log(loss_mse) + torch.log(loss_lfi) + torch.log(hparams.weight_da * loss_mmd)
@@ -143,7 +143,7 @@ def train(loader, model, hparams, optimizer, scheduler, disc, disc_cond=None):
     train_loss_lfi = train_loss_lfi/points
     train_loss_mmd = train_loss_mmd/points
 
-    if hparams.weight_da == 0.0:
+    if hparams.weight_da == 0.0 or hparams.domain_adapt == 'None':
         train_loss = (torch.log(train_loss_mse) + torch.log(train_loss_lfi)).item()
         train_loss_mmd_only = 0.0
     elif hparams.domain_adapt == 'ADV':
@@ -239,7 +239,7 @@ def evaluate(loader, model, hparams, disc, same_suite = True, disc_cond=None):
     valid_loss_lfi = valid_loss_lfi/points
     valid_loss_mmd = valid_loss_mmd/points
 
-    if hparams.weight_da == 0.0:
+    if hparams.weight_da == 0.0 or hparams.domain_adapt == 'None':
         valid_loss = (torch.log(valid_loss_mse) + torch.log(valid_loss_lfi)).item()
         valid_loss_mmd_only = 0.0
     elif hparams.domain_adapt == 'ADV':
